@@ -17,7 +17,7 @@
             }
         };
     </script>
-    <script async src="https://docs.opencv.org/4.x/opencv.js" type="text/javascript"></script>
+    <script async src="https://docs.opencv.org/4.13.0/opencv.js" type="text/javascript"></script>
     <!-- Community compiled OpenCV.js with ArUco bindings enabled -->
     <!-- <script async src="./opencv.js" type="text/javascript"></script> -->
     <style>
@@ -303,7 +303,6 @@
 
         let dictId = cv[dictName] !== undefined ? cv[dictName] : fallbackMap[dictName];
         
-        // 4.x leaves the getter unprefixed!
         if (typeof cv.getPredefinedDictionary === 'function') return cv.getPredefinedDictionary(dictId);
         if (typeof cv.aruco_getPredefinedDictionary === 'function') return cv.aruco_getPredefinedDictionary(dictId);
         
@@ -318,10 +317,21 @@
 
     createCharucoBoard: function(cols, rows, sqSz, mkSz, dict) {
         let sz = new cv.Size(cols, rows);
-        // 4.x prefixes the Classes
-        if (typeof cv.aruco_CharucoBoard === 'function') return new cv.aruco_CharucoBoard(sz, sqSz, mkSz, dict);
-        if (typeof cv.CharucoBoard === 'function') return new cv.CharucoBoard(sz, sqSz, mkSz, dict);
-        throw new Error("Unable to map ChArUco Board API.");
+        let emptyIds = new cv.Mat(); // Fix: Emscripten bindings strictly require the 5th argument
+        
+        try {
+            if (typeof cv.aruco_CharucoBoard === 'function') {
+                try { return new cv.aruco_CharucoBoard(sz, sqSz, mkSz, dict, emptyIds); } 
+                catch(e) { return new cv.aruco_CharucoBoard(sz, sqSz, mkSz, dict); }
+            }
+            if (typeof cv.CharucoBoard === 'function') {
+                try { return new cv.CharucoBoard(sz, sqSz, mkSz, dict, emptyIds); } 
+                catch(e) { return new cv.CharucoBoard(sz, sqSz, mkSz, dict); }
+            }
+            throw new Error("Unable to map ChArUco Board API.");
+        } finally {
+            emptyIds.delete(); // Free memory
+        }
     },
 
     drawCharucoBoard: function(board, outSize, img) {
@@ -349,22 +359,30 @@
         params.delete();
     },
 
-    drawDetectedMarkers: function(img, corners, ids) {
-        if (typeof cv.drawDetectedMarkers === 'function') cv.drawDetectedMarkers(img, corners, ids);
-        else if (typeof cv.aruco_drawDetectedMarkers === 'function') cv.aruco_drawDetectedMarkers(img, corners, ids);
-    },
-
     interpolateCornersCharuco: function(markerCorners, markerIds, gray, board, charucoCorners, charucoIds) {
         let detector;
-        if (typeof cv.aruco_CharucoDetector === 'function') {
-            detector = new cv.aruco_CharucoDetector(board);
-        } else if (typeof cv.CharucoDetector === 'function') {
-            detector = new cv.CharucoDetector(board);
-        }
-
-        if (detector) {
-            detector.detectBoard(gray, charucoCorners, charucoIds, markerCorners, markerIds);
-            detector.delete();
+        if (typeof cv.aruco_CharucoDetector === 'function' || typeof cv.CharucoDetector === 'function') {
+            let ClassRef = cv.aruco_CharucoDetector || cv.CharucoDetector;
+            
+            // Protect against strict arity mismatches on the detector as well
+            let charucoParams = typeof cv.aruco_CharucoParameters === 'function' ? new cv.aruco_CharucoParameters() : (cv.CharucoParameters ? new cv.CharucoParameters() : null);
+            let detectorParams = typeof cv.aruco_DetectorParameters === 'function' ? new cv.aruco_DetectorParameters() : (cv.DetectorParameters ? new cv.DetectorParameters() : null);
+            
+            try {
+                // Try full parameter list
+                detector = new ClassRef(board, charucoParams, detectorParams);
+            } catch(e) {
+                // Fallback to strict 1-parameter binding
+                detector = new ClassRef(board);
+            }
+            
+            if (detector) {
+                detector.detectBoard(gray, charucoCorners, charucoIds, markerCorners, markerIds);
+                detector.delete();
+            }
+            if (charucoParams) charucoParams.delete();
+            if (detectorParams) detectorParams.delete();
+            
         } else if (typeof cv.interpolateCornersCharuco === 'function') {
             cv.interpolateCornersCharuco(markerCorners, markerIds, gray, board, charucoCorners, charucoIds);
         }
@@ -377,6 +395,8 @@
         color.delete();
     }
 };
+
+
         // --- INIT ---
         function onOpenCvReady() {
             cvReady = true;
