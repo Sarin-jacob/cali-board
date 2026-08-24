@@ -18,6 +18,7 @@
         };
     </script>
     <script async src="https://docs.opencv.org/4.13.0/opencv.js" type="text/javascript"></script>
+    <!-- <script async src="https://docs.opencv.org/5.x/opencv.js" type="text/javascript"></script> -->
     <!-- Community compiled OpenCV.js with ArUco bindings enabled -->
     <!-- <script async src="./opencv.js" type="text/javascript"></script> -->
     <style>
@@ -348,27 +349,31 @@
             },
 
             detectMarkers: function(gray, dict, corners, ids) {
-                let params = null;
-                try {
-                    params = typeof cv.aruco_DetectorParameters === 'function' ? new cv.aruco_DetectorParameters() : (cv.DetectorParameters ? new cv.DetectorParameters() : null);
-                } catch(e) {}
-                
-                let detector;
-                if (typeof cv.aruco_ArucoDetector === 'function') detector = new cv.aruco_ArucoDetector(dict, params);
-                else if (typeof cv.ArucoDetector === 'function') detector = new cv.ArucoDetector(dict, params);
+        let params = null;
+        let refineParams = null;
+        let detector = null;
+        
+        try {
+            // Instantiate native C++ configuration objects required by 4.x ArucoDetector
+            params = typeof cv.aruco_DetectorParameters === 'function' ? new cv.aruco_DetectorParameters() : new cv.DetectorParameters();
+            refineParams = typeof cv.aruco_RefineParameters === 'function' ? new cv.aruco_RefineParameters() : new cv.RefineParameters();
 
-                if (detector) {
-                    detector.detectMarkers(gray, corners, ids);
-                    detector.delete();
-                } else {
-                    let func = cv.aruco_detectMarkers || cv.detectMarkers;
-                    if (func) {
-                        try { func(gray, dict, corners, ids, params); }
-                        catch(e) { func(gray, dict, corners, ids); }
-                    }
-                }
-                if (params) params.delete();
-            },
+            let ClassRef = cv.aruco_ArucoDetector || cv.ArucoDetector;
+            if (ClassRef) {
+                detector = new ClassRef(dict, params, refineParams);
+                detector.detectMarkers(gray, corners, ids);
+            } else {
+                let func = cv.aruco_detectMarkers || cv.detectMarkers;
+                if (func) func(gray, dict, corners, ids, params);
+            }
+        } catch (e) {
+            console.error("Internal C++ Detection Error:", e);
+        } finally {
+            if (detector) detector.delete();
+            if (params && params.delete) params.delete();
+            if (refineParams && refineParams.delete) refineParams.delete();
+        }
+    },
 
             drawDetectedMarkers: function(img, corners, ids) {
                 let color = new cv.Scalar(0, 255, 0, 255); // Green bounding box
@@ -383,34 +388,26 @@
                 }
             },
 
-            interpolateCornersCharuco: function(markerCorners, markerIds, gray, board, charucoCorners, charucoIds) {
-                let detector;
-                if (typeof cv.aruco_CharucoDetector === 'function' || typeof cv.CharucoDetector === 'function') {
-                    let ClassRef = cv.aruco_CharucoDetector || cv.CharucoDetector;
-                    
-                    // Protect against strict arity mismatches on the detector as well
-                    let charucoParams = typeof cv.aruco_CharucoParameters === 'function' ? new cv.aruco_CharucoParameters() : (cv.CharucoParameters ? new cv.CharucoParameters() : null);
-                    let detectorParams = typeof cv.aruco_DetectorParameters === 'function' ? new cv.aruco_DetectorParameters() : (cv.DetectorParameters ? new cv.DetectorParameters() : null);
-                    
-                    try {
-                        // Try full parameter list
-                        detector = new ClassRef(board, charucoParams, detectorParams);
-                    } catch(e) {
-                        // Fallback to strict 1-parameter binding
-                        detector = new ClassRef(board);
-                    }
-                    
-                    if (detector) {
-                        detector.detectBoard(gray, charucoCorners, charucoIds, markerCorners, markerIds);
-                        detector.delete();
-                    }
-                    if (charucoParams) charucoParams.delete();
-                    if (detectorParams) detectorParams.delete();
-                    
-                } else if (typeof cv.interpolateCornersCharuco === 'function') {
-                    cv.interpolateCornersCharuco(markerCorners, markerIds, gray, board, charucoCorners, charucoIds);
-                }
-            },
+           interpolateCornersCharuco: function(markerCorners, markerIds, gray, board, charucoCorners, charucoIds) {
+        let detector = null, charucoParams = null, detectorParams = null;
+        try {
+            let ClassRef = cv.aruco_CharucoDetector || cv.CharucoDetector;
+            if (ClassRef) {
+                charucoParams = typeof cv.aruco_CharucoParameters === 'function' ? new cv.aruco_CharucoParameters() : (cv.CharucoParameters ? new cv.CharucoParameters() : new cv.Mat());
+                detectorParams = typeof cv.aruco_DetectorParameters === 'function' ? new cv.aruco_DetectorParameters() : (cv.DetectorParameters ? new cv.DetectorParameters() : new cv.Mat());
+                
+                detector = new ClassRef(board, charucoParams, detectorParams);
+                detector.detectBoard(gray, charucoCorners, charucoIds, markerCorners, markerIds);
+            } else {
+                let func = cv.interpolateCornersCharuco || cv.aruco_interpolateCornersCharuco;
+                if (func) func(markerCorners, markerIds, gray, board, charucoCorners, charucoIds);
+            }
+        } finally {
+            if (detector) detector.delete();
+            if (charucoParams && charucoParams.delete) charucoParams.delete();
+            if (detectorParams && detectorParams.delete) detectorParams.delete();
+        }
+    },
 
             drawDetectedCornersCharuco: function(img, corners, ids) {
                 let color = new cv.Scalar(0, 0, 255, 255);
@@ -744,15 +741,21 @@
                         markerCorners.delete(); markerIds.delete();
 
                     } else if (mode === 'checkerboard') {
-                        const cols = parseInt(document.getElementById('detCbCols').value);
-                        const rows = parseInt(document.getElementById('detCbRows').value);
-                        const patternSize = new cv.Size(cols - 1, rows - 1);
-                        let corners = new cv.Mat();
-                        
-                        const flags = (cv.CALIB_CB_ADAPTIVE_THRESH || 1) + (cv.CALIB_CB_NORMALIZE_IMAGE || 2);
-                        const found = cv.findChessboardCorners(gray, patternSize, corners, flags);
-                        if (found) cv.drawChessboardCorners(dst, patternSize, corners, found);
-                        corners.delete();
+                        if (typeof cv.findChessboardCorners !== 'function') {
+                            // The official CDN strips calib3d. Draw a red warning directly on the live feed.
+                            cv.putText(dst, "Checkerboard unsupported in 4.x CDN", new cv.Point(20, 40), cv.FONT_HERSHEY_SIMPLEX, 0.7, new cv.Scalar(255, 0, 0, 255), 2);
+                            cv.putText(dst, "Switch to ArUco or ChArUco mode.", new cv.Point(20, 75), cv.FONT_HERSHEY_SIMPLEX, 0.6, new cv.Scalar(255, 0, 0, 255), 2);
+                        } else {
+                            const cols = parseInt(document.getElementById('detCbCols').value);
+                            const rows = parseInt(document.getElementById('detCbRows').value);
+                            const patternSize = new cv.Size(cols - 1, rows - 1);
+                            let corners = new cv.Mat();
+                            
+                            const flags = (cv.CALIB_CB_ADAPTIVE_THRESH || 1) + (cv.CALIB_CB_NORMALIZE_IMAGE || 2);
+                            const found = cv.findChessboardCorners(gray, patternSize, corners, flags);
+                            if (found) cv.drawChessboardCorners(dst, patternSize, corners, found);
+                            corners.delete();
+                        }
                     }
                 } catch (detErr) {
                     console.warn("Detector Exception (Safely Caught):", detErr);
