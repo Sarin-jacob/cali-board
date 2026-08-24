@@ -17,7 +17,12 @@
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        .tab-active { border-bottom: 2px solid #2563eb; color: #2563eb; font-weight: 600; }
+        .tab-active { 
+            background-color: #eff6ff; /* blue-50 */
+            border-bottom: 2px solid #2563eb; 
+            color: #2563eb; 
+            font-weight: 600; 
+        }
         canvas { max-width: 100%; height: auto; }
     </style>
 </head>
@@ -25,125 +30,141 @@
 
     <!-- Print Promotion Banner -->
     <div class="bg-blue-600 text-white text-center py-3 px-4 shadow-md relative z-10">
-        <p class="text-sm sm:text-base font-medium">
-            🖨️ Need to print a large calibration pattern across multiple A4/Letter pages? 
-            <a href="https://sarin-jacob.github.io/img2pdf" target="_blank" class="underline font-bold hover:text-blue-200 transition-colors ml-1">
+        <p class="text-sm sm:text-base font-medium flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-2">
+            <span class="flex items-center gap-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                Need to print a large pattern across multiple pages? 
+            </span>
+            <a href="https://sarin-jacob.github.io/img2pdf" target="_blank" class="underline font-bold hover:text-blue-200 transition-colors">
                 Use the tiling tool at sarin-jacob.github.io/img2pdf
             </a>
         </p>
     </div>
 
     <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        <header class="mb-6 flex justify-between items-end border-b border-slate-200 pb-4">
+        <header class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-200 pb-4">
             <div>
-                <h1 class="text-3xl font-bold text-slate-900">Computer Vision Calibration Suite</h1>
-                <p class="text-slate-500 mt-2">Generate and detect Checkerboards, ArUco, and ChArUco patterns entirely in-browser.</p>
+                <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Computer Vision Calibration Suite</h1>
+                <p class="text-sm sm:text-base text-slate-500 mt-2">Generate and detect Checkerboards, ArUco, and ChArUco patterns entirely in-browser.</p>
             </div>
             <!-- Loading Indicator -->
-            <div id="loadingStatus" class="flex items-center text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-200 shadow-sm">
+            <div id="loadingStatus" class="flex items-center text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-200 shadow-sm w-full md:w-auto justify-center md:justify-start">
                 <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                <span class="font-medium">Loading OpenCV.js Engine...</span>
+                <span class="font-medium text-sm sm:text-base">Loading OpenCV.js Engine...</span>
             </div>
         </header>
 
-        <!-- Tabs -->
-        <div class="flex border-b border-slate-200 mb-6 overflow-x-auto custom-scroll pointer-events-none opacity-50" id="mainTabs">
-            <button onclick="switchTab('genCheckerboard')" class="tab-btn tab-active px-6 py-3 text-slate-600 hover:text-blue-600 whitespace-nowrap transition-colors" data-target="panelGenCheckerboard">Generate Checkerboard</button>
-            <button onclick="switchTab('genAruco')" class="tab-btn px-6 py-3 text-slate-600 hover:text-blue-600 whitespace-nowrap transition-colors" data-target="panelGenAruco">Generate ArUco</button>
-            <button onclick="switchTab('genCharuco')" class="tab-btn px-6 py-3 text-slate-600 hover:text-blue-600 whitespace-nowrap transition-colors" data-target="panelGenCharuco">Generate ChArUco</button>
-            <button onclick="switchTab('cameraDetector')" class="tab-btn px-6 py-3 text-slate-600 hover:text-blue-600 whitespace-nowrap transition-colors bg-blue-50/50" data-target="panelCameraDetector">📷 Live Camera Detector</button>
+        <!-- Tabs (Now responsive flex-wrap for mobile visibility) -->
+        <div class="flex flex-wrap border-b border-slate-200 mb-6 gap-1 pointer-events-none opacity-50" id="mainTabs">
+            <button onclick="switchTab('genCheckerboard')" class="tab-btn tab-active flex-1 sm:flex-none px-4 sm:px-6 py-3 text-sm sm:text-base text-slate-600 hover:text-blue-600 transition-colors rounded-t-lg" data-target="panelGenCheckerboard">Checkerboard</button>
+            <button onclick="switchTab('genAruco')" class="tab-btn flex-1 sm:flex-none px-4 sm:px-6 py-3 text-sm sm:text-base text-slate-600 hover:text-blue-600 transition-colors rounded-t-lg" data-target="panelGenAruco">ArUco</button>
+            <button onclick="switchTab('genCharuco')" class="tab-btn flex-1 sm:flex-none px-4 sm:px-6 py-3 text-sm sm:text-base text-slate-600 hover:text-blue-600 transition-colors rounded-t-lg" data-target="panelGenCharuco">ChArUco</button>
+            
+            <button onclick="switchTab('cameraDetector')" class="tab-btn flex-[100%] sm:flex-none mt-1 sm:mt-0 px-4 sm:px-6 py-3 text-sm sm:text-base text-slate-600 hover:text-blue-600 transition-colors bg-blue-50/50 rounded-t-lg flex items-center justify-center sm:justify-start gap-2" data-target="panelCameraDetector">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                Live Detector
+            </button>
         </div>
 
         <!-- GENERATE CHECKERBOARD -->
-        <div id="panelGenCheckerboard" class="tab-panel grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div id="panelGenCheckerboard" class="tab-panel grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
             <div class="lg:col-span-4 bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
                 <h2 class="text-lg font-semibold">Checkerboard Config</h2>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm text-slate-600 mb-1">Columns (Width)</label>
-                        <input type="number" id="cbCols" value="9" min="3" class="w-full border-slate-300 rounded-md p-2 border" oninput="drawCheckerboard()">
+                        <input type="number" id="cbCols" value="9" min="3" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCheckerboard()">
                     </div>
                     <div>
                         <label class="block text-sm text-slate-600 mb-1">Rows (Height)</label>
-                        <input type="number" id="cbRows" value="6" min="3" class="w-full border-slate-300 rounded-md p-2 border" oninput="drawCheckerboard()">
+                        <input type="number" id="cbRows" value="6" min="3" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCheckerboard()">
                     </div>
                 </div>
                 <div>
                     <label class="block text-sm text-slate-600 mb-1">Square Size (pixels)</label>
-                    <input type="number" id="cbSize" value="100" min="10" class="w-full border-slate-300 rounded-md p-2 border" oninput="drawCheckerboard()">
+                    <input type="number" id="cbSize" value="100" min="10" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCheckerboard()">
                 </div>
-                <button onclick="downloadCanvas('canvasCheckerboard', 'checkerboard.png')" class="w-full mt-4 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow">Download PNG</button>
+                <button onclick="downloadCanvas('canvasCheckerboard', 'checkerboard.png')" class="w-full mt-4 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Download PNG
+                </button>
             </div>
-            <div class="lg:col-span-8 flex justify-center items-center bg-slate-200 rounded-xl border border-slate-300 overflow-auto p-4 custom-scroll">
+            <div class="lg:col-span-8 flex justify-center items-center bg-slate-200 rounded-xl border border-slate-300 overflow-auto p-4 custom-scroll min-h-[300px]">
                 <canvas id="canvasCheckerboard" class="bg-white shadow-lg"></canvas>
             </div>
         </div>
 
         <!-- GENERATE ARUCO -->
-        <div id="panelGenAruco" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div id="panelGenAruco" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
             <div class="lg:col-span-4 bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
                 <h2 class="text-lg font-semibold">ArUco Config</h2>
                 <div>
                     <label class="block text-sm text-slate-600 mb-1">Dictionary</label>
-                    <select id="arDict" class="w-full border-slate-300 rounded-md p-2 border" onchange="drawAruco()">
+                    <select id="arDict" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawAruco()">
                         <!-- Populated by JS -->
                     </select>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm text-slate-600 mb-1">Marker ID</label>
-                        <input type="number" id="arId" value="42" min="0" class="w-full border-slate-300 rounded-md p-2 border" oninput="drawAruco()">
+                        <input type="number" id="arId" value="42" min="0" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawAruco()">
                     </div>
                     <div>
                         <label class="block text-sm text-slate-600 mb-1">Size (pixels)</label>
-                        <input type="number" id="arSize" value="400" min="50" class="w-full border-slate-300 rounded-md p-2 border" oninput="drawAruco()">
+                        <input type="number" id="arSize" value="400" min="50" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawAruco()">
                     </div>
                 </div>
-                <button onclick="downloadCanvas('canvasAruco', 'aruco.png')" class="w-full mt-4 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow">Download PNG</button>
+                <button onclick="downloadCanvas('canvasAruco', 'aruco.png')" class="w-full mt-4 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Download PNG
+                </button>
             </div>
-            <div class="lg:col-span-8 flex justify-center items-center bg-slate-200 rounded-xl border border-slate-300 p-8">
+            <div class="lg:col-span-8 flex justify-center items-center bg-slate-200 rounded-xl border border-slate-300 p-8 min-h-[300px]">
                 <canvas id="canvasAruco" class="bg-white shadow-lg"></canvas>
             </div>
         </div>
 
         <!-- GENERATE CHARUCO -->
-        <div id="panelGenCharuco" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div id="panelGenCharuco" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
             <div class="lg:col-span-4 bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
                 <h2 class="text-lg font-semibold">ChArUco Config</h2>
                 <div>
                     <label class="block text-sm text-slate-600 mb-1">Dictionary</label>
-                    <select id="chDict" class="w-full border-slate-300 rounded-md p-2 border" onchange="drawCharuco()">
+                    <select id="chDict" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawCharuco()">
                         <!-- Populated by JS -->
                     </select>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm text-slate-600 mb-1">Columns</label>
-                        <input type="number" id="chCols" value="7" min="3" class="w-full border-slate-300 rounded-md p-2 border" oninput="drawCharuco()">
+                        <input type="number" id="chCols" value="7" min="3" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
                     </div>
                     <div>
                         <label class="block text-sm text-slate-600 mb-1">Rows</label>
-                        <input type="number" id="chRows" value="5" min="3" class="w-full border-slate-300 rounded-md p-2 border" oninput="drawCharuco()">
+                        <input type="number" id="chRows" value="5" min="3" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
                     </div>
                     <div>
                         <label class="block text-sm text-slate-600 mb-1">Square Size (px)</label>
-                        <input type="number" id="chSqSize" value="100" min="20" class="w-full border-slate-300 rounded-md p-2 border" oninput="drawCharuco()">
+                        <input type="number" id="chSqSize" value="100" min="20" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
                     </div>
                     <div>
                         <label class="block text-sm text-slate-600 mb-1">Marker Size (px)</label>
-                        <input type="number" id="chMkSize" value="60" min="10" class="w-full border-slate-300 rounded-md p-2 border" oninput="drawCharuco()">
+                        <input type="number" id="chMkSize" value="60" min="10" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
                     </div>
                 </div>
                 <p class="text-xs text-slate-500 italic">Marker size must be smaller than square size.</p>
-                <button onclick="downloadCanvas('canvasCharuco', 'charuco.png')" class="w-full mt-4 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow">Download PNG</button>
+                <button onclick="downloadCanvas('canvasCharuco', 'charuco.png')" class="w-full mt-4 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Download PNG
+                </button>
             </div>
-            <div class="lg:col-span-8 flex justify-center items-center bg-slate-200 rounded-xl border border-slate-300 overflow-auto p-4 custom-scroll">
+            <div class="lg:col-span-8 flex justify-center items-center bg-slate-200 rounded-xl border border-slate-300 overflow-auto p-4 custom-scroll min-h-[300px]">
                 <canvas id="canvasCharuco" class="bg-white shadow-lg"></canvas>
             </div>
         </div>
 
         <!-- CAMERA DETECTOR -->
-        <div id="panelCameraDetector" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div id="panelCameraDetector" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
             <div class="lg:col-span-4 bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-6">
                 
                 <div>
@@ -152,11 +173,13 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                         Start Camera
                     </button>
+                    <!-- Error message container -->
+                    <p id="cameraErrorMsg" class="text-sm text-red-600 mt-2 font-medium hidden bg-red-50 p-3 rounded border border-red-200"></p>
                 </div>
 
                 <div class="border-t border-slate-200 pt-4">
                     <label class="block text-sm font-bold text-slate-700 mb-2">Detection Target</label>
-                    <select id="detectMode" class="w-full border-slate-300 rounded-md p-2 border font-medium text-blue-700 bg-blue-50" onchange="updateDetectorUI()">
+                    <select id="detectMode" class="w-full border-slate-300 rounded-md p-3 border font-medium text-blue-700 bg-blue-50 outline-none focus:ring-2 focus:ring-blue-500" onchange="updateDetectorUI()">
                         <option value="aruco">ArUco Markers</option>
                         <option value="charuco">ChArUco Board Corners</option>
                         <option value="checkerboard">Standard Checkerboard</option>
@@ -166,7 +189,7 @@
                 <!-- Contextual Inputs for Detector -->
                 <div id="detArucoParams" class="space-y-3">
                     <label class="block text-sm text-slate-600 mb-1">Dictionary Expected</label>
-                    <select id="detDict" class="w-full border-slate-300 rounded-md p-2 border">
+                    <select id="detDict" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500">
                         <!-- Populated by JS -->
                     </select>
                 </div>
@@ -176,19 +199,19 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="text-xs text-slate-600">Columns</label>
-                            <input type="number" id="detChCols" value="7" class="w-full border-slate-300 rounded p-2 border">
+                            <input type="number" id="detChCols" value="7" class="w-full border-slate-300 rounded p-2 border outline-none">
                         </div>
                         <div>
                             <label class="text-xs text-slate-600">Rows</label>
-                            <input type="number" id="detChRows" value="5" class="w-full border-slate-300 rounded p-2 border">
+                            <input type="number" id="detChRows" value="5" class="w-full border-slate-300 rounded p-2 border outline-none">
                         </div>
                         <div>
                             <label class="text-xs text-slate-600">Square Sz</label>
-                            <input type="number" id="detChSq" value="100" class="w-full border-slate-300 rounded p-2 border">
+                            <input type="number" id="detChSq" value="100" class="w-full border-slate-300 rounded p-2 border outline-none">
                         </div>
                         <div>
                             <label class="text-xs text-slate-600">Marker Sz</label>
-                            <input type="number" id="detChMk" value="60" class="w-full border-slate-300 rounded p-2 border">
+                            <input type="number" id="detChMk" value="60" class="w-full border-slate-300 rounded p-2 border outline-none">
                         </div>
                     </div>
                 </div>
@@ -198,20 +221,24 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="text-xs text-slate-600">Total Columns</label>
-                            <input type="number" id="detCbCols" value="9" class="w-full border-slate-300 rounded p-2 border">
+                            <input type="number" id="detCbCols" value="9" class="w-full border-slate-300 rounded p-2 border outline-none">
                         </div>
                         <div>
                             <label class="text-xs text-slate-600">Total Rows</label>
-                            <input type="number" id="detCbRows" value="6" class="w-full border-slate-300 rounded p-2 border">
+                            <input type="number" id="detCbRows" value="6" class="w-full border-slate-300 rounded p-2 border outline-none">
                         </div>
                     </div>
                 </div>
 
             </div>
-            <div class="lg:col-span-8 flex justify-center items-center bg-slate-900 rounded-xl border border-slate-800 overflow-hidden relative min-h-[400px]">
-                <span class="absolute text-slate-500 z-0">Camera feed will appear here</span>
+            
+            <div class="lg:col-span-8 flex justify-center items-center bg-slate-900 rounded-xl border border-slate-800 overflow-hidden relative min-h-[350px] lg:min-h-[500px]">
+                <div class="absolute text-slate-500 z-0 flex flex-col items-center gap-2 text-center p-4">
+                    <svg class="w-10 h-10 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    <p class="text-sm">Camera feed will appear here.<br>Allow camera access when prompted.</p>
+                </div>
                 <video id="videoInput" class="hidden" autoplay playsinline></video>
-                <canvas id="canvasDetector" class="z-10 max-w-full"></canvas>
+                <canvas id="canvasDetector" class="z-10 max-w-full object-contain"></canvas>
             </div>
         </div>
 
@@ -239,9 +266,9 @@
             cvReady = true;
             document.getElementById('loadingStatus').innerHTML = `
                 <svg class="mr-2 h-5 w-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                <span class="font-medium text-emerald-700">OpenCV Ready</span>
+                <span class="font-medium text-sm sm:text-base text-emerald-700">OpenCV Ready</span>
             `;
-            document.getElementById('loadingStatus').className = "flex items-center bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200 shadow-sm";
+            document.getElementById('loadingStatus').className = "flex items-center bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200 shadow-sm w-full md:w-auto justify-center md:justify-start";
             document.getElementById('mainTabs').classList.remove('pointer-events-none', 'opacity-50');
 
             // Populate Dictionaries
@@ -311,7 +338,6 @@
 
         // --- GENERATORS ---
 
-        // 1. Pure JS Checkerboard (Crisp, fast, doesn't need OpenCV)
         function drawCheckerboard() {
             const cols = parseInt(document.getElementById('cbCols').value);
             const rows = parseInt(document.getElementById('cbRows').value);
@@ -335,7 +361,6 @@
             }
         }
 
-        // 2. ArUco Generator using OpenCV.js
         function drawAruco() {
             if (!cvReady) return;
             try {
@@ -354,7 +379,6 @@
             }
         }
 
-        // 3. ChArUco Generator using OpenCV.js
         function drawCharuco() {
             if (!cvReady) return;
             try {
@@ -365,7 +389,6 @@
                 const mkSize = parseFloat(document.getElementById('chMkSize').value);
                 
                 if (mkSize >= sqSize) {
-                    // Prevent OpenCV crash if sizes are invalid
                     const canvas = document.getElementById('canvasCharuco');
                     const ctx = canvas.getContext('2d');
                     ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -381,7 +404,6 @@
                 const pixelWidth = cols * sqSize;
                 const pixelHeight = rows * sqSize;
                 
-                // Margin = 0, BorderBits = 1
                 board.draw(new cv.Size(pixelWidth, pixelHeight), boardImage, 0, 1);
                 cv.imshow('canvasCharuco', boardImage);
                 
@@ -396,10 +418,17 @@
 
         async function toggleCamera() {
             const btn = document.getElementById('btnToggleCamera');
+            const errorMsg = document.getElementById('cameraErrorMsg');
+            errorMsg.classList.add('hidden'); // Reset error
             
             if (!isStreaming) {
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: 640, height: 480 }, audio: false });
+                    // ideal constraints are better for mobile support
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }, 
+                        audio: false 
+                    });
+                    
                     video.srcObject = stream;
                     video.play();
                     
@@ -417,16 +446,28 @@
                             requestAnimationFrame(processVideo);
                         }
                     }, { once: true });
+                    
                 } catch (err) {
-                    alert("Error accessing camera: " + err);
+                    errorMsg.classList.remove('hidden');
+                    
+                    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                        errorMsg.innerHTML = "<strong>Camera access denied.</strong> Please allow camera permissions in your browser site settings and try again.";
+                    } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                        errorMsg.innerHTML = "<strong>No camera found.</strong> Your device does not appear to have a supported camera attached.";
+                    } else {
+                        errorMsg.innerHTML = "<strong>Error starting camera:</strong> " + err.message;
+                    }
                 }
             } else {
                 // Stop Streaming
                 isStreaming = false;
                 cancelAnimationFrame(streamingAnimFrame);
                 video.pause();
-                video.srcObject.getTracks()[0].stop();
-                video.srcObject = null;
+                
+                if (video.srcObject) {
+                    video.srcObject.getTracks().forEach(track => track.stop());
+                    video.srcObject = null;
+                }
                 
                 if (src) { src.delete(); src = null; }
                 if (dst) { dst.delete(); dst = null; }
@@ -437,7 +478,8 @@
                 
                 // Clear Canvas
                 const canvas = document.getElementById('canvasDetector');
-                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
             }
         }
 
@@ -445,7 +487,6 @@
             if (!isStreaming) return;
             
             try {
-                // Capture frame
                 cap.read(src);
                 src.copyTo(dst);
                 cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
@@ -453,21 +494,18 @@
                 const mode = document.getElementById('detectMode').value;
 
                 if (mode === 'aruco' || mode === 'charuco') {
-                    // ARUCO & CHARUCO LOGIC
                     const dictName = document.getElementById('detDict').value;
                     const dictionary = cv.aruco_Dictionary.get(cv[dictName]);
                     let markerCorners = new cv.MatVector();
                     let markerIds = new cv.Mat();
                     let parameters = new cv.aruco_DetectorParameters();
 
-                    // Detect basic markers first
                     cv.aruco.detectMarkers(gray, dictionary, markerCorners, markerIds, parameters);
 
                     if (markerIds.rows > 0) {
                         cv.aruco.drawDetectedMarkers(dst, markerCorners, markerIds);
 
                         if (mode === 'charuco') {
-                            // CHARUCO specific logic
                             const cols = parseInt(document.getElementById('detChCols').value);
                             const rows = parseInt(document.getElementById('detChRows').value);
                             const sqSz = parseFloat(document.getElementById('detChSq').value);
@@ -477,11 +515,9 @@
                             let charucoCorners = new cv.Mat();
                             let charucoIds = new cv.Mat();
 
-                            // Interpolate Checkerboard corners from detected markers
                             cv.aruco.interpolateCornersCharuco(markerCorners, markerIds, gray, board, charucoCorners, charucoIds);
 
                             if (charucoIds.rows > 0) {
-                                // Draw red dots on interpolated internal corners
                                 cv.aruco.drawDetectedCornersCharuco(dst, charucoCorners, charucoIds, new cv.Scalar(0, 0, 255, 255));
                             }
                             board.delete(); charucoCorners.delete(); charucoIds.delete();
@@ -490,34 +526,28 @@
                     markerCorners.delete(); markerIds.delete(); parameters.delete();
 
                 } else if (mode === 'checkerboard') {
-                    // STANDARD CHECKERBOARD LOGIC
                     const cols = parseInt(document.getElementById('detCbCols').value);
                     const rows = parseInt(document.getElementById('detCbRows').value);
                     
-                    // OpenCV searches for INTERNAL corners, so it's cols-1, rows-1
                     const patternSize = new cv.Size(cols - 1, rows - 1);
                     let corners = new cv.Mat();
                     
                     const found = cv.findChessboardCorners(gray, patternSize, corners, cv.CALIB_CB_ADAPTIVE_THRESH + cv.CALIB_CB_NORMALIZE_IMAGE);
                     
                     if (found) {
-                        // Optionally refine corner locations (subpixel accuracy) - skipped for real-time speed, but standard detect is usually enough.
                         cv.drawChessboardCorners(dst, patternSize, corners, found);
                     }
                     corners.delete();
                 }
 
-                // Render to canvas
                 cv.imshow('canvasDetector', dst);
                 
             } catch (err) {
                 console.error(err);
             }
 
-            // Loop
             streamingAnimFrame = requestAnimationFrame(processVideo);
         }
-
     </script>
 </body>
 </html>
