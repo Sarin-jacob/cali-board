@@ -4,34 +4,69 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Advanced Calibration & Marker Tools</title>
-    
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- TechStark community build v5.0.0-release.1 (Includes full ArUco/ChArUco modules) -->
+
+    <!--
+      OpenCV.js loader.
+      The official build is a classic (non-MODULARIZE) Emscripten module: it picks up a
+      pre-existing global `Module` and fires Module.onRuntimeInitialized once the wasm is live.
+      Never wire onOpenCvReady() to the script tag's own onload handler - that fires
+      before the wasm is instantiated (cv.Mat is still undefined at that point).
+    -->
     <script>
-        var Module = {
-            onRuntimeInitialized: function() {
-                // This fires ONLY when the WebAssembly binary is fully active
+        var Module = {};
+        (function () {
+            const SOURCES = [
+                "https://docs.opencv.org/4.13.0/opencv.js",
+                "https://docs.opencv.org/4.x/opencv.js"   // fallback if the pinned version 404s
+            ];
+            let idx = 0, settled = false;
+
+            function settle() {
+                if (settled) return;
+                settled = true;
+                clearTimeout(window.__cvTimeout);
                 onOpenCvReady();
             }
-        };
+            Module.onRuntimeInitialized = settle;
+
+            function tryNext() {
+                if (idx >= SOURCES.length) { onOpenCvFailed("Could not download opencv.js."); return; }
+                const url = SOURCES[idx++];
+                const s = document.createElement("script");
+                s.async = true;
+                s.src = url;
+                s.onerror = tryNext;
+                s.onload = function () {
+                    if (typeof window.cv === "function") {            // MODULARIZE-style build
+                        window.cv().then(m => { window.cv = m; settle(); });
+                    } else if (window.cv && window.cv.Mat) {          // already initialised
+                        settle();
+                    }
+                    // else: classic build -> Module.onRuntimeInitialized will fire
+                };
+                document.head.appendChild(s);
+            }
+            window.__cvTimeout = setTimeout(function () {
+                if (!settled) onOpenCvFailed("opencv.js did not finish initialising (timed out).");
+            }, 90000);
+            tryNext();
+        })();
     </script>
-    <script async src="https://docs.opencv.org/4.13.0/opencv.js" type="text/javascript"></script>
-    <!-- <script async src="https://docs.opencv.org/5.x/opencv.js" type="text/javascript"></script> -->
-    <!-- Community compiled OpenCV.js with ArUco bindings enabled -->
-    <!-- <script async src="./opencv.js" type="text/javascript"></script> -->
+
     <style>
         .custom-scroll::-webkit-scrollbar { height: 8px; width: 8px; }
         .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        .tab-active { 
-            background-color: #eff6ff; 
-            border-bottom: 2px solid #2563eb; 
-            color: #2563eb; 
-            font-weight: 600; 
+
+        .tab-active {
+            background-color: #eff6ff;
+            border-bottom: 2px solid #2563eb;
+            color: #2563eb;
+            font-weight: 600;
         }
         canvas { max-width: 100%; height: auto; display: block; margin: 0 auto; }
     </style>
@@ -43,7 +78,7 @@
         <p class="text-sm sm:text-base font-medium flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-2">
             <span class="flex items-center gap-1">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                Need to print a large pattern across multiple pages? 
+                Need to print a large pattern across multiple pages?
             </span>
             <a href="https://sarin-jacob.github.io/img2pdf" target="_blank" class="underline font-bold hover:text-blue-200 transition-colors">
                 Use the tiling tool at sarin-jacob.github.io/img2pdf
@@ -68,7 +103,7 @@
             <button onclick="switchTab('genCheckerboard')" class="tab-btn tab-active flex-1 sm:flex-none px-4 sm:px-6 py-3 text-sm sm:text-base text-slate-600 hover:text-blue-600 transition-colors rounded-t-lg" data-target="panelGenCheckerboard">Checkerboard</button>
             <button onclick="switchTab('genAruco')" class="tab-btn flex-1 sm:flex-none px-4 sm:px-6 py-3 text-sm sm:text-base text-slate-600 hover:text-blue-600 transition-colors rounded-t-lg" data-target="panelGenAruco">ArUco</button>
             <button onclick="switchTab('genCharuco')" class="tab-btn flex-1 sm:flex-none px-4 sm:px-6 py-3 text-sm sm:text-base text-slate-600 hover:text-blue-600 transition-colors rounded-t-lg" data-target="panelGenCharuco">ChArUco</button>
-            
+
             <button onclick="switchTab('cameraDetector')" class="tab-btn flex-[100%] sm:flex-none mt-1 sm:mt-0 px-4 sm:px-6 py-3 text-sm sm:text-base text-slate-600 hover:text-blue-600 transition-colors bg-blue-50/50 rounded-t-lg flex items-center justify-center sm:justify-start gap-2" data-target="panelCameraDetector">
                 <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 Live Detector
@@ -141,11 +176,11 @@
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm text-slate-600 mb-1">Cols</label>
+                        <label class="block text-sm text-slate-600 mb-1">Cols (squares)</label>
                         <input type="number" id="chCols" value="7" min="3" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
                     </div>
                     <div>
-                        <label class="block text-sm text-slate-600 mb-1">Rows</label>
+                        <label class="block text-sm text-slate-600 mb-1">Rows (squares)</label>
                         <input type="number" id="chRows" value="5" min="3" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
                     </div>
                     <div>
@@ -170,14 +205,14 @@
         <!-- CAMERA DETECTOR -->
         <div id="panelCameraDetector" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
             <div class="lg:col-span-4 bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-6">
-                
+
                 <div>
                     <h2 class="text-lg font-semibold mb-3">Live Detector</h2>
                     <button id="btnToggleCamera" onclick="toggleCamera()" class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold shadow transition-colors flex justify-center items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                         Start Camera
                     </button>
-                    
+
                     <div id="mobileCameraControls" class="flex flex-wrap gap-3 mt-3 hidden">
                         <button id="btnSwitchLens" onclick="switchCamera()" class="flex-1 py-2 px-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold transition-colors flex justify-center items-center gap-2 hidden">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -205,51 +240,64 @@
                     <div class="flex items-center justify-between mb-1">
                         <label class="block text-sm text-slate-600">Dictionary Expected</label>
                         <label class="flex items-center text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded cursor-pointer hover:bg-blue-100 transition-colors">
-                            <input type="checkbox" id="autoScanDict" class="mr-1.5 accent-blue-600"> 
+                            <input type="checkbox" id="autoScanDict" class="mr-1.5 accent-blue-600">
                             Auto-Scan Live
                         </label>
                     </div>
-                    <select id="detDict" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500"></select>
+                    <select id="detDict" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="invalidateDetector()"></select>
                     <p class="text-[11px] text-slate-500 hidden" id="autoScanStatus">Scanning dictionaries... hold marker steady.</p>
+                    <label class="flex items-center text-xs text-slate-600 cursor-pointer">
+                        <input type="checkbox" id="useSubPix" class="mr-2 accent-blue-600" checked onchange="invalidateDetector()">
+                        Sub-pixel corner refinement (slower, much more accurate)
+                    </label>
                 </div>
 
                 <div id="detCharucoParams" class="hidden space-y-3">
-                    <p class="text-xs text-slate-500">ChArUco dimensions required to interpolate internal map bounds.</p>
+                    <p class="text-xs text-slate-500">Must match the printed board exactly, in <em>squares</em>.</p>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="text-xs text-slate-600">Columns</label>
-                            <input type="number" id="detChCols" value="7" class="w-full border-slate-300 rounded p-2 border outline-none">
+                            <label class="text-xs text-slate-600">Cols (squares)</label>
+                            <input type="number" id="detChCols" value="7" class="w-full border-slate-300 rounded p-2 border outline-none" onchange="invalidateDetector()">
                         </div>
                         <div>
-                            <label class="text-xs text-slate-600">Rows</label>
-                            <input type="number" id="detChRows" value="5" class="w-full border-slate-300 rounded p-2 border outline-none">
+                            <label class="text-xs text-slate-600">Rows (squares)</label>
+                            <input type="number" id="detChRows" value="5" class="w-full border-slate-300 rounded p-2 border outline-none" onchange="invalidateDetector()">
                         </div>
                         <div>
                             <label class="text-xs text-slate-600">Square Sz</label>
-                            <input type="number" id="detChSq" value="100" class="w-full border-slate-300 rounded p-2 border outline-none">
+                            <input type="number" id="detChSq" value="100" class="w-full border-slate-300 rounded p-2 border outline-none" onchange="invalidateDetector()">
                         </div>
                         <div>
                             <label class="text-xs text-slate-600">Marker Sz</label>
-                            <input type="number" id="detChMk" value="60" class="w-full border-slate-300 rounded p-2 border outline-none">
+                            <input type="number" id="detChMk" value="60" class="w-full border-slate-300 rounded p-2 border outline-none" onchange="invalidateDetector()">
                         </div>
                     </div>
+                    <label class="flex items-center text-xs text-slate-600 cursor-pointer">
+                        <input type="checkbox" id="legacyPattern" class="mr-2 accent-blue-600" onchange="invalidateDetector()">
+                        Legacy pattern (board printed with OpenCV &lt; 4.6)
+                    </label>
                 </div>
 
                 <div id="detCheckerParams" class="hidden space-y-3">
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="text-xs text-slate-600">Cols (Internal)</label>
+                            <label class="text-xs text-slate-600">Cols (squares)</label>
                             <input type="number" id="detCbCols" value="9" class="w-full border-slate-300 rounded p-2 border outline-none">
                         </div>
                         <div>
-                            <label class="text-xs text-slate-600">Rows (Internal)</label>
+                            <label class="text-xs text-slate-600">Rows (squares)</label>
                             <input type="number" id="detCbRows" value="6" class="w-full border-slate-300 rounded p-2 border outline-none">
                         </div>
                     </div>
+                    <p id="checkerUnsupported" class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 hidden"></p>
+                </div>
+
+                <div class="border-t border-slate-200 pt-3">
+                    <p id="detStats" class="text-xs font-mono text-slate-500">idle</p>
                 </div>
 
             </div>
-            
+
             <div class="lg:col-span-8 flex justify-center items-center bg-slate-900 rounded-xl border border-slate-800 overflow-hidden relative min-h-[350px] lg:min-h-[500px]">
                 <div id="camPlaceholder" class="absolute text-slate-500 z-0 flex flex-col items-center gap-2 text-center p-4">
                     <svg class="w-10 h-10 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
@@ -267,7 +315,7 @@
         let isStreaming = false;
         let video, cap, src, dst, gray;
         let streamingAnimFrame;
-        
+
         let currentMatW = 0;
         let currentMatH = 0;
 
@@ -287,8 +335,9 @@
         function drawErrorOnCanvas(canvasId, msg) {
             const canvas = document.getElementById(canvasId);
             const ctx = canvas.getContext('2d');
+            if (canvas.width < 400) { canvas.width = 520; canvas.height = 90; }
             ctx.clearRect(0,0,canvas.width,canvas.height);
-            ctx.fillStyle = "#fee2e2"; 
+            ctx.fillStyle = "#fee2e2";
             ctx.fillRect(0,0,canvas.width,canvas.height);
             ctx.fillStyle = "#b91c1c";
             ctx.font = "14px sans-serif";
@@ -297,10 +346,36 @@
         }
 
         // =========================================================================
-        // THE MEGA-ROUTER POLYFILL: Abstracts all ArUco OpenCV.js version changes
+        // CV_UTILS - ArUco/ChArUco binding router
+        //
+        // Naming rule in the official JS bindings (modules/js/generator/embindgen.py
+        // sets namespace_prefix_override = {'dnn':'', 'aruco':''}):
+        //   free functions of cv::aruco  -> NO prefix   (cv.getPredefinedDictionary)
+        //   classes of cv::aruco         -> aruco_      (cv.aruco_ArucoDetector)
+        // Both spellings are accepted below so custom builds keep working.
+        //
+        // Two hard constraints that the previous version violated:
+        //   1. cv.Scalar is an embind value-array, NOT a heap object -> it has no
+        //      .delete(); calling it throws and aborted every frame.
+        //   2. drawDetectedMarkers / drawDetectedCornersCharuco assert
+        //      channels() == 1 || channels() == 3. An RGBA (CV_8UC4) canvas Mat
+        //      throws. The pipeline below draws into a CV_8UC3 Mat.
         // =========================================================================
-       const CV_UTILS = {
-            getDict: function(dictName) {
+        const CV_UTILS = {
+            fn: function (...names) {
+                for (const n of names) if (typeof cv[n] === 'function') return cv[n];
+                return null;
+            },
+            klass: function (...names) {
+                for (const n of names) if (typeof cv[n] === 'function') return cv[n];
+                return null;
+            },
+            scalar: function (a, b, c, d) {
+                // NEVER call .delete() on this.
+                return (typeof cv.Scalar === 'function') ? new cv.Scalar(a, b, c, d) : [a, b, c, d];
+            },
+
+            getDict: function (dictName) {
                 const fallbackMap = {
                     'DICT_4X4_50': 0, 'DICT_4X4_100': 1, 'DICT_4X4_250': 2, 'DICT_4X4_1000': 3,
                     'DICT_5X5_50': 4, 'DICT_5X5_100': 5, 'DICT_5X5_250': 6, 'DICT_5X5_1000': 7,
@@ -308,124 +383,196 @@
                     'DICT_7X7_50': 12, 'DICT_7X7_100': 13, 'DICT_7X7_250': 14, 'DICT_7X7_1000': 15,
                     'DICT_ARUCO_ORIGINAL': 16
                 };
+                let raw = cv[dictName] !== undefined ? cv[dictName] : fallbackMap[dictName];
+                const dictId = (raw && typeof raw === 'object' && 'value' in raw) ? raw.value : raw;
+                if (dictId === undefined) throw new Error("Unknown dictionary " + dictName);
 
-                let dictId = cv[dictName] !== undefined ? cv[dictName] : fallbackMap[dictName];
-                
-                if (typeof cv.getPredefinedDictionary === 'function') return cv.getPredefinedDictionary(dictId);
-                if (typeof cv.aruco_getPredefinedDictionary === 'function') return cv.aruco_getPredefinedDictionary(dictId);
-                
-                throw new Error("Unable to map Dictionary API.");
+                const f = this.fn('getPredefinedDictionary', 'aruco_getPredefinedDictionary');
+                if (!f) throw new Error("Unable to map Dictionary API.");
+                return f(dictId);
             },
 
-            drawMarker: function(dict, id, size, img) {
-                if (typeof cv.generateImageMarker === 'function') return cv.generateImageMarker(dict, id, size, img, 1);
-                if (typeof cv.aruco_generateImageMarker === 'function') return cv.aruco_generateImageMarker(dict, id, size, img, 1);
+            drawMarker: function (dict, id, size, img) {
+                const f = this.fn('generateImageMarker', 'aruco_generateImageMarker');
+                if (f) return f(dict, id, size, img, 1);
+                if (typeof dict.generateImageMarker === 'function') return dict.generateImageMarker(id, size, img, 1);
                 throw new Error("Unable to map Image Marker API.");
             },
 
-            createCharucoBoard: function(cols, rows, sqSz, mkSz, dict) {
-                let sz = new cv.Size(cols, rows);
-                let emptyIds = new cv.Mat(); // Fix: Emscripten bindings strictly require the 5th argument
-                
+            newDetectorParameters: function () {
+                const K = this.klass('aruco_DetectorParameters', 'DetectorParameters');
+                if (!K) throw new Error("DetectorParameters missing from this build.");
+                return new K();
+            },
+
+            newRefineParameters: function () {
+                const K = this.klass('aruco_RefineParameters', 'RefineParameters');
+                if (!K) return null;
+                try { return new K(10, 3, true); } catch (e) { try { return new K(); } catch (e2) { return null; } }
+            },
+
+            newArucoDetector: function (dict, params, refine) {
+                const K = this.klass('aruco_ArucoDetector', 'ArucoDetector');
+                if (!K) throw new Error("ArucoDetector missing - this opencv.js was built without the objdetect aruco whitelist.");
+                if (refine) { try { return new K(dict, params, refine); } catch (e) { /* fall through */ } }
+                return new K(dict, params);
+            },
+
+            createCharucoBoard: function (cols, rows, sqSz, mkSz, dict) {
+                const K = this.klass('aruco_CharucoBoard', 'CharucoBoard');
+                if (!K) throw new Error("Unable to map ChArUco Board API.");
+                const sz = new cv.Size(cols, rows);
                 try {
-                    if (typeof cv.aruco_CharucoBoard === 'function') {
-                        try { return new cv.aruco_CharucoBoard(sz, sqSz, mkSz, dict, emptyIds); } 
-                        catch(e) { return new cv.aruco_CharucoBoard(sz, sqSz, mkSz, dict); }
-                    }
-                    if (typeof cv.CharucoBoard === 'function') {
-                        try { return new cv.CharucoBoard(sz, sqSz, mkSz, dict, emptyIds); } 
-                        catch(e) { return new cv.CharucoBoard(sz, sqSz, mkSz, dict); }
-                    }
-                    throw new Error("Unable to map ChArUco Board API.");
-                } finally {
-                    emptyIds.delete(); // Free memory
+                    return new K(sz, sqSz, mkSz, dict);
+                } catch (e) {
+                    const emptyIds = new cv.Mat();
+                    try { return new K(sz, sqSz, mkSz, dict, emptyIds); }
+                    finally { emptyIds.delete(); }
                 }
             },
 
-            drawCharucoBoard: function(board, outSize, img) {
+            newCharucoDetector: function (board) {
+                const K = this.klass('aruco_CharucoDetector', 'CharucoDetector');
+                if (!K) throw new Error("CharucoDetector missing from this build.");
+                let cp = null, dp = null, rp = null;
+                try {
+                    const CP = this.klass('aruco_CharucoParameters', 'CharucoParameters');
+                    if (CP) {
+                        cp = new CP();
+                        dp = this.newDetectorParameters();
+                        rp = this.newRefineParameters();
+                        try { if (rp) return new K(board, cp, dp, rp); } catch (e) {}
+                        try { return new K(board, cp, dp); } catch (e) {}
+                    }
+                    return new K(board);
+                } finally {
+                    [rp, dp, cp].forEach(o => { if (o && o.delete) o.delete(); });
+                }
+            },
+
+            drawCharucoBoard: function (board, outSize, img) {
                 if (typeof board.generateImage === 'function') return board.generateImage(outSize, img, 0, 1);
                 if (typeof board.draw === 'function') return board.draw(outSize, img, 0, 1);
                 throw new Error("Unable to map ChArUco rendering API.");
             },
 
-            detectMarkers: function(gray, dict, corners, ids) {
-        let params = null;
-        let refineParams = null;
-        let detector = null;
-        
-        try {
-            // Instantiate native C++ configuration objects required by 4.x ArucoDetector
-            params = typeof cv.aruco_DetectorParameters === 'function' ? new cv.aruco_DetectorParameters() : new cv.DetectorParameters();
-            refineParams = typeof cv.aruco_RefineParameters === 'function' ? new cv.aruco_RefineParameters() : new cv.RefineParameters();
-
-            let ClassRef = cv.aruco_ArucoDetector || cv.ArucoDetector;
-            if (ClassRef) {
-                detector = new ClassRef(dict, params, refineParams);
-                detector.detectMarkers(gray, corners, ids);
-            } else {
-                let func = cv.aruco_detectMarkers || cv.detectMarkers;
-                if (func) func(gray, dict, corners, ids, params);
-            }
-        } catch (e) {
-            console.error("Internal C++ Detection Error:", e);
-        } finally {
-            if (detector) detector.delete();
-            if (params && params.delete) params.delete();
-            if (refineParams && refineParams.delete) refineParams.delete();
-        }
-    },
-
-            drawDetectedMarkers: function(img, corners, ids) {
-                let color = new cv.Scalar(0, 255, 0, 255); // Green bounding box
-                try {
-                    let func = cv.aruco_drawDetectedMarkers || cv.drawDetectedMarkers;
-                    if (func) {
-                        try { func(img, corners, ids, color); }
-                        catch(e) { func(img, corners, ids); }
-                    }
-                } finally {
-                    color.delete();
-                }
+            // img must be CV_8UC1 or CV_8UC3. Colours are in the img's own channel order.
+            drawDetectedMarkers: function (img, corners, ids, color) {
+                const f = this.fn('drawDetectedMarkers', 'aruco_drawDetectedMarkers');
+                if (!f) return;
+                const c = color || this.scalar(0, 255, 0, 255);
+                try { f(img, corners, ids, c); } catch (e) { f(img, corners, ids); }
             },
 
-           interpolateCornersCharuco: function(markerCorners, markerIds, gray, board, charucoCorners, charucoIds) {
-        let detector = null, charucoParams = null, detectorParams = null;
-        try {
-            let ClassRef = cv.aruco_CharucoDetector || cv.CharucoDetector;
-            if (ClassRef) {
-                charucoParams = typeof cv.aruco_CharucoParameters === 'function' ? new cv.aruco_CharucoParameters() : (cv.CharucoParameters ? new cv.CharucoParameters() : new cv.Mat());
-                detectorParams = typeof cv.aruco_DetectorParameters === 'function' ? new cv.aruco_DetectorParameters() : (cv.DetectorParameters ? new cv.DetectorParameters() : new cv.Mat());
-                
-                detector = new ClassRef(board, charucoParams, detectorParams);
-                detector.detectBoard(gray, charucoCorners, charucoIds, markerCorners, markerIds);
-            } else {
-                let func = cv.interpolateCornersCharuco || cv.aruco_interpolateCornersCharuco;
-                if (func) func(markerCorners, markerIds, gray, board, charucoCorners, charucoIds);
-            }
-        } finally {
-            if (detector) detector.delete();
-            if (charucoParams && charucoParams.delete) charucoParams.delete();
-            if (detectorParams && detectorParams.delete) detectorParams.delete();
-        }
-    },
+            drawDetectedCornersCharuco: function (img, corners, ids, color) {
+                const f = this.fn('drawDetectedCornersCharuco', 'aruco_drawDetectedCornersCharuco');
+                if (!f) return;
+                const c = color || this.scalar(255, 0, 0, 255);
+                try { f(img, corners, ids, c); } catch (e) { f(img, corners, ids); }
+            },
 
-            drawDetectedCornersCharuco: function(img, corners, ids) {
-                let color = new cv.Scalar(0, 0, 255, 255);
-                if (typeof cv.drawDetectedCornersCharuco === 'function') cv.drawDetectedCornersCharuco(img, corners, ids, color);
-                else if (typeof cv.aruco_drawDetectedCornersCharuco === 'function') cv.aruco_drawDetectedCornersCharuco(img, corners, ids, color);
-                color.delete();
+            missingSymbols: function () {
+                const need = [
+                    ['getPredefinedDictionary', 'aruco_getPredefinedDictionary'],
+                    ['generateImageMarker', 'aruco_generateImageMarker'],
+                    ['drawDetectedMarkers', 'aruco_drawDetectedMarkers'],
+                    ['drawDetectedCornersCharuco', 'aruco_drawDetectedCornersCharuco'],
+                    ['aruco_ArucoDetector', 'ArucoDetector'],
+                    ['aruco_CharucoDetector', 'CharucoDetector'],
+                    ['aruco_CharucoBoard', 'CharucoBoard'],
+                    ['aruco_DetectorParameters', 'DetectorParameters']
+                ];
+                return need.filter(pair => !this.fn(...pair)).map(pair => pair[0]);
             }
         };
 
+        // =========================================================================
+        // DETECTOR CACHE
+        // Building a Dictionary + DetectorParameters + ArucoDetector costs a WASM
+        // allocation each time. The old code did that once per frame and never freed
+        // the Dictionary, which leaked heap until the module aborted. These objects
+        // are now built once and rebuilt only when a setting changes.
+        // =========================================================================
+        const Detector = {
+            dictName: null, dict: null,
+            params: null, refine: null, aruco: null,
+            boardKey: null, board: null, charuco: null,
+
+            aruco_for: function (dictName, subPix) {
+                const key = dictName + '|' + (subPix ? 1 : 0);
+                if (this.dictName !== key) {
+                    this.disposeAll();
+                    this.dict = CV_UTILS.getDict(dictName);
+                    this.params = CV_UTILS.newDetectorParameters();
+                    if (subPix) this.applySubPix(this.params);
+                    this.refine = CV_UTILS.newRefineParameters();
+                    this.aruco = CV_UTILS.newArucoDetector(this.dict, this.params, this.refine);
+                    this.dictName = key;
+                }
+                return this.aruco;
+            },
+
+            applySubPix: function (params) {
+                const v = (cv.CORNER_REFINE_SUBPIX !== undefined) ? cv.CORNER_REFINE_SUBPIX
+                        : (cv.aruco_CORNER_REFINE_SUBPIX !== undefined ? cv.aruco_CORNER_REFINE_SUBPIX : 1);
+                const val = (v && typeof v === 'object' && 'value' in v) ? v.value : v;
+                try { params.cornerRefinementMethod = val; } catch (e) { /* field not bound */ }
+            },
+
+            charuco_for: function (dictName, subPix, cols, rows, sq, mk, legacy) {
+                const detector = this.aruco_for(dictName, subPix);   // keeps dict alive
+                const key = [dictName, cols, rows, sq, mk, legacy ? 1 : 0].join('|');
+                if (this.boardKey !== key) {
+                    this.disposeBoard();
+                    this.board = CV_UTILS.createCharucoBoard(cols, rows, sq, mk, this.dict);
+                    if (legacy && typeof this.board.setLegacyPattern === 'function') {
+                        try { this.board.setLegacyPattern(true); } catch (e) {}
+                    }
+                    this.charuco = CV_UTILS.newCharucoDetector(this.board);
+                    this.boardKey = key;
+                }
+                return { aruco: detector, charuco: this.charuco, board: this.board };
+            },
+
+            disposeBoard: function () {
+                if (this.charuco) { this.charuco.delete(); this.charuco = null; }
+                if (this.board) { this.board.delete(); this.board = null; }
+                this.boardKey = null;
+            },
+
+            disposeAll: function () {
+                this.disposeBoard();
+                if (this.aruco) { this.aruco.delete(); this.aruco = null; }
+                if (this.refine && this.refine.delete) { this.refine.delete(); this.refine = null; }
+                if (this.params && this.params.delete) { this.params.delete(); this.params = null; }
+                if (this.dict && this.dict.delete) { this.dict.delete(); this.dict = null; }
+                this.dictName = null;
+            }
+        };
+
+        function invalidateDetector() { if (cvReady) Detector.disposeAll(); }
 
         // --- INIT ---
+        function onOpenCvFailed(msg) {
+            const el = document.getElementById('loadingStatus');
+            el.className = "flex items-center bg-red-50 px-4 py-2 rounded-lg border border-red-200 shadow-sm w-full md:w-auto";
+            el.innerHTML = `<span class="font-medium text-sm text-red-700">${msg}</span>`;
+        }
+
         function onOpenCvReady() {
             cvReady = true;
-            document.getElementById('loadingStatus').innerHTML = `
-                <svg class="mr-2 h-5 w-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                <span class="font-medium text-sm sm:text-base text-emerald-700">OpenCV Ready</span>
-            `;
-            document.getElementById('loadingStatus').className = "flex items-center bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200 shadow-sm w-full md:w-auto justify-center md:justify-start";
+
+            const missing = CV_UTILS.missingSymbols();
+            const statusEl = document.getElementById('loadingStatus');
+            if (missing.length) {
+                statusEl.className = "flex items-center bg-amber-50 px-4 py-2 rounded-lg border border-amber-200 shadow-sm w-full md:w-auto";
+                statusEl.innerHTML = `<span class="font-medium text-sm text-amber-800">OpenCV loaded, but ${missing.length} ArUco symbol(s) missing: ${missing.join(', ')}</span>`;
+            } else {
+                statusEl.innerHTML = `
+                    <svg class="mr-2 h-5 w-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    <span class="font-medium text-sm sm:text-base text-emerald-700">OpenCV Ready</span>`;
+                statusEl.className = "flex items-center bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200 shadow-sm w-full md:w-auto justify-center md:justify-start";
+            }
             document.getElementById('mainTabs').classList.remove('pointer-events-none', 'opacity-50');
 
             const dictSelects = [document.getElementById('arDict'), document.getElementById('chDict'), document.getElementById('detDict')];
@@ -434,10 +581,18 @@
                     let opt = document.createElement('option');
                     opt.value = dict;
                     opt.text = dict;
-                    if(dict === 'DICT_6X6_250') opt.selected = true;
+                    if (dict === 'DICT_6X6_250') opt.selected = true;
                     sel.appendChild(opt);
                 });
             });
+
+            // calib3d in the official opencv.js whitelist does not include
+            // findChessboardCorners / drawChessboardCorners / cornerSubPix.
+            if (typeof cv.findChessboardCorners !== 'function') {
+                const w = document.getElementById('checkerUnsupported');
+                w.classList.remove('hidden');
+                w.innerHTML = "<strong>Not available in this build.</strong> The official opencv.js whitelist ships calib3d without <code>findChessboardCorners</code>. Use ChArUco detection, or build opencv.js with those functions added to <code>platforms/js/opencv_js.config.py</code>.";
+            }
 
             drawCheckerboard();
             drawAruco();
@@ -447,8 +602,8 @@
 
         // --- UI ---
         function switchTab(tabId) {
-            if(tabId !== 'cameraDetector' && isStreaming) {
-                stopCamera(); 
+            if (tabId !== 'cameraDetector' && isStreaming) {
+                stopCamera();
             }
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('tab-active'));
             document.querySelector(`[onclick="switchTab('${tabId}')"]`).classList.add('tab-active');
@@ -491,47 +646,52 @@
 
         function drawAruco() {
             if (!cvReady) return;
+            let dictionary = null, markerImage = null;
             try {
                 const dictName = document.getElementById('arDict').value;
-                const dictionary = CV_UTILS.getDict(dictName);
-                let markerImage = new cv.Mat();
+                dictionary = CV_UTILS.getDict(dictName);
+                markerImage = new cv.Mat();
                 const id = parseInt(document.getElementById('arId').value);
                 const size = parseInt(document.getElementById('arSize').value);
-                
+
                 CV_UTILS.drawMarker(dictionary, id, size, markerImage);
                 cv.imshow('canvasAruco', markerImage);
-                markerImage.delete();
             } catch (err) {
                 console.error(err);
                 drawErrorOnCanvas('canvasAruco', err.message);
+            } finally {
+                if (markerImage) markerImage.delete();
+                if (dictionary && dictionary.delete) dictionary.delete();   // was leaking on every keystroke
             }
         }
 
         function drawCharuco() {
             if (!cvReady) return;
+            let dictionary = null, board = null, boardImage = null;
             try {
                 const dictName = document.getElementById('chDict').value;
                 const sqSz = parseFloat(document.getElementById('chSqSize').value);
                 const mkSz = parseFloat(document.getElementById('chMkSize').value);
                 if (mkSz >= sqSz) return;
-                
+
                 const cols = parseInt(document.getElementById('chCols').value);
                 const rows = parseInt(document.getElementById('chRows').value);
-                
-                const dictionary = CV_UTILS.getDict(dictName);
-                const board = CV_UTILS.createCharucoBoard(cols, rows, sqSz, mkSz, dictionary);
-                
-                let boardImage = new cv.Mat();
+
+                dictionary = CV_UTILS.getDict(dictName);
+                board = CV_UTILS.createCharucoBoard(cols, rows, sqSz, mkSz, dictionary);
+
+                boardImage = new cv.Mat();
                 let renderSize = new cv.Size(cols * sqSz, rows * sqSz);
-                
+
                 CV_UTILS.drawCharucoBoard(board, renderSize, boardImage);
-                
                 cv.imshow('canvasCharuco', boardImage);
-                boardImage.delete(); 
-                if (board.delete) board.delete();
             } catch (err) {
                 console.error(err);
                 drawErrorOnCanvas('canvasCharuco', err.message);
+            } finally {
+                if (boardImage) boardImage.delete();
+                if (board && board.delete) board.delete();
+                if (dictionary && dictionary.delete) dictionary.delete();
             }
         }
 
@@ -551,28 +711,28 @@
         async function startCamera() {
             const errorMsg = document.getElementById('cameraErrorMsg');
             errorMsg.classList.add('hidden');
-            
+
             try {
                 if (videoDevices.length === 0) {
                     const initialStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                     await getDevices();
                     initialStream.getTracks().forEach(track => track.stop());
                 }
-                
-                let constraints = { video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false };
+
+                let constraints = { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false };
                 if (videoDevices.length > 0) {
                     const deviceId = videoDevices[currentDeviceIndex].deviceId;
-                    if (deviceId) constraints.video = { deviceId: { exact: deviceId }, width: { ideal: 640 }, height: { ideal: 480 } };
+                    if (deviceId) constraints.video = { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } };
                 }
 
                 currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.setAttribute('playsinline', ''); video.setAttribute('autoplay', ''); video.setAttribute('muted', '');
                 video.muted = true; video.srcObject = currentStream;
-                try { await video.play(); } catch(playErr) { console.error(playErr); }
+                try { await video.play(); } catch (playErr) { console.error(playErr); }
 
                 const track = currentStream.getVideoTracks()[0];
                 let hasTorch = false;
-                try { if (typeof track.getCapabilities === 'function') hasTorch = !!track.getCapabilities().torch; } catch(e) {}
+                try { if (typeof track.getCapabilities === 'function') hasTorch = !!track.getCapabilities().torch; } catch (e) {}
 
                 const btnSwitch = document.getElementById('btnSwitchLens');
                 const btnFlash = document.getElementById('btnToggleFlash');
@@ -584,14 +744,14 @@
                 else { btnFlash.classList.add('hidden'); btnFlash.classList.remove('flex'); }
                 if (videoDevices.length > 1 || hasTorch) controlsContainer.classList.remove('hidden');
                 else controlsContainer.classList.add('hidden');
-                
+
                 const btn = document.getElementById('btnToggleCamera');
                 btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path></svg> Stop Camera`;
                 btn.className = "w-full py-3 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold shadow transition-colors flex justify-center items-center gap-2";
-                
+
                 isStreaming = true; torchEnabled = false; updateFlashUI();
                 requestAnimationFrame(processVideo);
-                
+
             } catch (err) {
                 errorMsg.classList.remove('hidden');
                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -609,15 +769,18 @@
             if (src) { src.delete(); src = null; }
             if (dst) { dst.delete(); dst = null; }
             if (gray) { gray.delete(); gray = null; }
+            cap = null;
+            Detector.disposeAll();
             currentMatW = 0; currentMatH = 0;
-            
+
             const btn = document.getElementById('btnToggleCamera');
             btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> Start Camera`;
             btn.className = "w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold shadow transition-colors flex justify-center items-center gap-2";
-            
+
             document.getElementById('mobileCameraControls').classList.add('hidden');
             document.getElementById('canvasDetector').classList.add('hidden');
             document.getElementById('camPlaceholder').classList.remove('hidden');
+            document.getElementById('detStats').textContent = 'idle';
         }
 
         async function switchCamera() {
@@ -641,7 +804,7 @@
                 }
             } catch (err) {}
         }
-        
+
         function updateFlashUI() {
             const btn = document.getElementById('btnToggleFlash');
             if (torchEnabled) btn.innerHTML = `<svg class="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"></path></svg> Flash: On`;
@@ -649,11 +812,16 @@
         }
 
         // --- PROCESSING PIPELINE ENGINE ---
+        let lastDetErr = "";
+        let fpsT0 = 0, fpsN = 0, fps = 0;
+
+        function setStats(txt) { document.getElementById('detStats').textContent = txt; }
+
         function processVideo() {
             if (!isStreaming) return;
-            
+
             try {
-                const vw = video.videoWidth; const vh = video.videoHeight;
+                const vw = video.videoWidth, vh = video.videoHeight;
                 if (vw === 0 || vh === 0) { streamingAnimFrame = requestAnimationFrame(processVideo); return; }
 
                 if (currentMatW !== vw || currentMatH !== vh) {
@@ -665,110 +833,145 @@
                     canvas.classList.remove('hidden');
                     document.getElementById('camPlaceholder').classList.add('hidden');
 
-                    if (src) src.delete(); if (dst) dst.delete(); if (gray) gray.delete();
-                    src = new cv.Mat(vh, vw, cv.CV_8UC4);
-                    dst = new cv.Mat(vh, vw, cv.CV_8UC4);
+                    if (src) src.delete();
+                    if (dst) dst.delete();
+                    if (gray) gray.delete();
+                    src  = new cv.Mat(vh, vw, cv.CV_8UC4);
+                    dst  = new cv.Mat(vh, vw, cv.CV_8UC3);   // 3-channel: aruco draw* reject CV_8UC4
                     gray = new cv.Mat(vh, vw, cv.CV_8UC1);
                     cap = new cv.VideoCapture(video);
                 }
 
                 cap.read(src);
-                src.copyTo(dst);
-                cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
+                cv.cvtColor(src, dst,  cv.COLOR_RGBA2RGB);
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
-                // ALWAYS draw the image, even if detection logic crashes below
+                let nMarkers = 0, nCharuco = 0;
+
                 try {
                     const mode = document.getElementById('detectMode').value;
 
                     if (mode === 'aruco' || mode === 'charuco') {
-                        const isAuto = document.getElementById('autoScanDict') && document.getElementById('autoScanDict').checked;
+                        const isAuto = document.getElementById('autoScanDict').checked;
                         const statusTxt = document.getElementById('autoScanStatus');
-                        
                         const dictName = document.getElementById('detDict').value;
-                        const dictionary = CV_UTILS.getDict(dictName);
-                        
+                        const subPix = document.getElementById('useSubPix').checked;
+
                         let markerCorners = new cv.MatVector();
                         let markerIds = new cv.Mat();
-                        
-                        CV_UTILS.detectMarkers(gray, dictionary, markerCorners, markerIds);
-                        
-                        if (markerIds.rows > 0) {
-                            // Marker found! Render it and pause auto-scanning.
-                            CV_UTILS.drawDetectedMarkers(dst, markerCorners, markerIds);
-                            if (isAuto && statusTxt) {
-                                statusTxt.classList.remove('hidden');
-                                statusTxt.innerHTML = `<span class="text-emerald-600 font-bold">Locked on: ${dictName}</span>`;
-                            }
-                            
-                            // --- ChArUco logic safely nested here ---
-                            if (mode === 'charuco') {
-                                try {
-                                    const cols = parseInt(document.getElementById('detChCols').value);
-                                    const rows = parseInt(document.getElementById('detChRows').value);
-                                    const sqSz = parseFloat(document.getElementById('detChSq').value);
-                                    const mkSz = parseFloat(document.getElementById('detChMk').value);
 
-                                    const board = CV_UTILS.createCharucoBoard(cols, rows, sqSz, mkSz, dictionary);
-                                    let charucoCorners = new cv.Mat();
-                                    let charucoIds = new cv.Mat();
-                                    
-                                    CV_UTILS.interpolateCornersCharuco(markerCorners, markerIds, gray, board, charucoCorners, charucoIds);
-                                    if (charucoIds.rows > 0) {
-                                        CV_UTILS.drawDetectedCornersCharuco(dst, charucoCorners, charucoIds);
+                        try {
+                            if (mode === 'charuco') {
+                                const cols = parseInt(document.getElementById('detChCols').value);
+                                const rows = parseInt(document.getElementById('detChRows').value);
+                                const sqSz = parseFloat(document.getElementById('detChSq').value);
+                                const mkSz = parseFloat(document.getElementById('detChMk').value);
+                                const legacy = document.getElementById('legacyPattern').checked;
+
+                                if (!(cols > 2 && rows > 2 && mkSz > 0 && mkSz < sqSz)) {
+                                    throw new Error("ChArUco dimensions invalid (need cols,rows > 2 and 0 < marker < square)");
+                                }
+
+                                const D = Detector.charuco_for(dictName, subPix, cols, rows, sqSz, mkSz, legacy);
+                                D.aruco.detectMarkers(gray, markerCorners, markerIds);
+                                nMarkers = markerIds.rows;
+
+                                if (nMarkers > 0) {
+                                    CV_UTILS.drawDetectedMarkers(dst, markerCorners, markerIds, CV_UTILS.scalar(0, 255, 0, 255));
+
+                                    let chCorners = new cv.Mat(), chIds = new cv.Mat();
+                                    try {
+                                        // CharucoDetector.detectBoard replaces the removed
+                                        // cv::aruco::interpolateCornersCharuco. Feeding it the
+                                        // markers we already found avoids a second full detect.
+                                        try {
+                                            D.charuco.detectBoard(gray, chCorners, chIds, markerCorners, markerIds);
+                                        } catch (e) {
+                                            D.charuco.detectBoard(gray, chCorners, chIds);
+                                        }
+                                        nCharuco = chIds.rows;
+                                        if (nCharuco > 0) {
+                                            CV_UTILS.drawDetectedCornersCharuco(dst, chCorners, chIds, CV_UTILS.scalar(255, 0, 0, 255));
+                                        }
+                                    } finally {
+                                        chCorners.delete(); chIds.delete();
                                     }
-                                    if (board.delete) board.delete();
-                                    charucoCorners.delete(); charucoIds.delete();
-                                } catch (chErr) {
-                                    console.warn("ChArUco sub-detection failed:", chErr);
+                                }
+                            } else {
+                                const detector = Detector.aruco_for(dictName, subPix);
+                                detector.detectMarkers(gray, markerCorners, markerIds);
+                                nMarkers = markerIds.rows;
+                                if (nMarkers > 0) {
+                                    CV_UTILS.drawDetectedMarkers(dst, markerCorners, markerIds, CV_UTILS.scalar(0, 255, 0, 255));
                                 }
                             }
-                        } else if (isAuto) {
-                            // No markers found - Cycle to the next dictionary every 10 frames
-                            if (statusTxt) {
+
+                            if (isAuto) {
                                 statusTxt.classList.remove('hidden');
-                                statusTxt.innerHTML = `Scanning... trying ${dictName}`;
+                                if (nMarkers > 0) {
+                                    statusTxt.innerHTML = `<span class="text-emerald-600 font-bold">Locked on: ${dictName}</span>`;
+                                    window.autoScanFrame = 0;
+                                } else {
+                                    statusTxt.innerHTML = `Scanning... trying ${dictName}`;
+                                    window.autoScanFrame = (window.autoScanFrame || 0) + 1;
+                                    if (window.autoScanFrame > 10) {
+                                        const sel = document.getElementById('detDict');
+                                        sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
+                                        window.autoScanFrame = 0;
+                                        invalidateDetector();     // dictionary changed -> rebuild
+                                    }
+                                }
+                            } else {
+                                statusTxt.classList.add('hidden');
                             }
-                            window.autoScanFrame = (window.autoScanFrame || 0) + 1;
-                            if (window.autoScanFrame > 10) { 
-                                let sel = document.getElementById('detDict');
-                                sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
-                                window.autoScanFrame = 0;
-                            }
-                        } else {
-                            if (statusTxt) statusTxt.classList.add('hidden');
+                        } finally {
+                            // Unconditional: the old code leaked these whenever a draw call threw.
+                            markerCorners.delete();
+                            markerIds.delete();
                         }
-                        
-                        markerCorners.delete(); markerIds.delete();
+
+                        lastDetErr = "";
 
                     } else if (mode === 'checkerboard') {
                         if (typeof cv.findChessboardCorners !== 'function') {
-                            // The official CDN strips calib3d. Draw a red warning directly on the live feed.
-                            cv.putText(dst, "Checkerboard unsupported in 4.x CDN", new cv.Point(20, 40), cv.FONT_HERSHEY_SIMPLEX, 0.7, new cv.Scalar(255, 0, 0, 255), 2);
-                            cv.putText(dst, "Switch to ArUco or ChArUco mode.", new cv.Point(20, 75), cv.FONT_HERSHEY_SIMPLEX, 0.6, new cv.Scalar(255, 0, 0, 255), 2);
+                            cv.putText(dst, "findChessboardCorners not in this opencv.js build",
+                                       new cv.Point(15, 34), cv.FONT_HERSHEY_SIMPLEX, 0.7, CV_UTILS.scalar(255, 60, 60, 255), 2);
+                            cv.putText(dst, "Use ArUco / ChArUco, or build with calib3d corners enabled.",
+                                       new cv.Point(15, 68), cv.FONT_HERSHEY_SIMPLEX, 0.55, CV_UTILS.scalar(255, 60, 60, 255), 2);
                         } else {
                             const cols = parseInt(document.getElementById('detCbCols').value);
                             const rows = parseInt(document.getElementById('detCbRows').value);
-                            const patternSize = new cv.Size(cols - 1, rows - 1);
+                            const patternSize = new cv.Size(cols - 1, rows - 1);   // inner corners
                             let corners = new cv.Mat();
-                            
-                            const flags = (cv.CALIB_CB_ADAPTIVE_THRESH || 1) + (cv.CALIB_CB_NORMALIZE_IMAGE || 2);
-                            const found = cv.findChessboardCorners(gray, patternSize, corners, flags);
-                            if (found) cv.drawChessboardCorners(dst, patternSize, corners, found);
-                            corners.delete();
+                            try {
+                                const flags = (cv.CALIB_CB_ADAPTIVE_THRESH || 1) + (cv.CALIB_CB_NORMALIZE_IMAGE || 2);
+                                const found = cv.findChessboardCorners(gray, patternSize, corners, flags);
+                                if (found && typeof cv.drawChessboardCorners === 'function') {
+                                    cv.drawChessboardCorners(dst, patternSize, corners, found);
+                                }
+                                nMarkers = found ? (cols - 1) * (rows - 1) : 0;
+                            } finally {
+                                corners.delete();
+                            }
                         }
                     }
                 } catch (detErr) {
-                    console.warn("Detector Exception (Safely Caught):", detErr);
-                    // Draw a warning directly on the live feed so you know it crashed instead of freezing
-                    cv.putText(dst, "Detection Error - Check Console", new cv.Point(15, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, new cv.Scalar(255, 0, 0, 255), 2);
+                    const msg = detErr && detErr.message ? detErr.message
+                              : (typeof detErr === 'number' && cv.exceptionFromPtr ? cv.exceptionFromPtr(detErr).msg : String(detErr));
+                    if (msg !== lastDetErr) { console.warn("Detector exception:", detErr); lastDetErr = msg; }
+                    cv.putText(dst, msg.slice(0, 60), new cv.Point(15, 30),
+                               cv.FONT_HERSHEY_SIMPLEX, 0.6, CV_UTILS.scalar(255, 60, 60, 255), 2);
                 }
 
-                // Output to canvas NO MATTER WHAT happens in the detector
                 cv.imshow('canvasDetector', dst);
-                
+
+                fpsN++;
+                const now = performance.now();
+                if (now - fpsT0 > 500) { fps = Math.round(fpsN * 1000 / (now - fpsT0)); fpsT0 = now; fpsN = 0; }
+                setStats(`${vw}x${vh}  ${fps} fps   markers: ${nMarkers}   charuco corners: ${nCharuco}` + (lastDetErr ? `\n${lastDetErr}` : ''));
+
             } catch (err) {
-                // Only hits this if the WebAssembly memory completely corrupts
-                console.error("Critical Frame Pipeline Error:", err);
+                console.error("Critical frame pipeline error:", err);
             }
 
             streamingAnimFrame = requestAnimationFrame(processVideo);
