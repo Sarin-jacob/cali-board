@@ -876,8 +876,42 @@
                                 D.aruco.detectMarkers(gray, markerCorners, markerIds);
                                 nMarkers = markerIds.rows;
 
-                                if (nMarkers > 0) {
-                                    CV_UTILS.drawDetectedMarkers(dst, markerCorners, markerIds, CV_UTILS.scalar(0, 255, 0, 255));
+                                                                if (nMarkers > 0) {
+                                    for (let i = 0; i < nMarkers; i++) {
+                                        let corners = markerCorners.get(i);
+                                        let p1 = { x: corners.data32F[0], y: corners.data32F[1] };
+                                        let p2 = { x: corners.data32F[2], y: corners.data32F[3] };
+                                        let p3 = { x: corners.data32F[4], y: corners.data32F[5] };
+                                        let p4 = { x: corners.data32F[6], y: corners.data32F[7] };
+                                        let color = [0, 255, 0, 255];
+                                        cv.line(dst, p1, p2, color, 2);
+                                        cv.line(dst, p2, p3, color, 2);
+                                        cv.line(dst, p3, p4, color, 2);
+                                        cv.line(dst, p4, p1, color, 2);
+
+
+
+                                                                                let idStr = markerIds.data32S[i].toString();
+
+                                                                                // Scale relative to marker size
+                                                                                let markerWidth = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+                                                                                let fontScale = markerWidth / 100;
+                                                                                fontScale = Math.max(0.4, Math.min(fontScale, 1.2));
+                                                                                let thickness = Math.max(1, Math.round(fontScale * 2));
+
+                                                                                // Approximate text dimensions (OpenCV.js getTextSize can be flaky)
+                                                                                let approxW = idStr.length * (20 * fontScale);
+                                                                                let approxH = 25 * fontScale;
+
+                                                                                // Translucent black overlay
+                                                                                let bgP1 = { x: p1.x + 2, y: p1.y + 2 };
+                                                                                let bgP2 = { x: p1.x + approxW + 8, y: p1.y + approxH + 8 };
+                                                                                cv.rectangle(dst, bgP1, bgP2, [0, 0, 0, 150], -1);
+
+                                                                                // ID Text
+                                                                                cv.putText(dst, idStr, { x: p1.x + 5, y: p1.y + approxH + 2 }, cv.FONT_HERSHEY_SIMPLEX, fontScale, [255, 255, 0, 255], thickness);
+                                                                                corners.delete();
+                                    }
 
                                     let chCorners = new cv.Mat(), chIds = new cv.Mat();
                                     try {
@@ -901,8 +935,42 @@
                                 const detector = Detector.aruco_for(dictName, subPix);
                                 detector.detectMarkers(gray, markerCorners, markerIds);
                                 nMarkers = markerIds.rows;
-                                if (nMarkers > 0) {
-                                    CV_UTILS.drawDetectedMarkers(dst, markerCorners, markerIds, CV_UTILS.scalar(0, 255, 0, 255));
+                                                                if (nMarkers > 0) {
+                                    for (let i = 0; i < nMarkers; i++) {
+                                        let corners = markerCorners.get(i);
+                                        let p1 = { x: corners.data32F[0], y: corners.data32F[1] };
+                                        let p2 = { x: corners.data32F[2], y: corners.data32F[3] };
+                                        let p3 = { x: corners.data32F[4], y: corners.data32F[5] };
+                                        let p4 = { x: corners.data32F[6], y: corners.data32F[7] };
+                                        let color = [0, 255, 0, 255];
+                                        cv.line(dst, p1, p2, color, 2);
+                                        cv.line(dst, p2, p3, color, 2);
+                                        cv.line(dst, p3, p4, color, 2);
+                                        cv.line(dst, p4, p1, color, 2);
+
+
+
+                                                                                let idStr = markerIds.data32S[i].toString();
+
+                                                                                // Scale relative to marker size
+                                                                                let markerWidth = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+                                                                                let fontScale = markerWidth / 100;
+                                                                                fontScale = Math.max(0.4, Math.min(fontScale, 1.2));
+                                                                                let thickness = Math.max(1, Math.round(fontScale * 2));
+
+                                                                                // Approximate text dimensions (OpenCV.js getTextSize can be flaky)
+                                                                                let approxW = idStr.length * (20 * fontScale);
+                                                                                let approxH = 25 * fontScale;
+
+                                                                                // Translucent black overlay
+                                                                                let bgP1 = { x: p1.x + 2, y: p1.y + 2 };
+                                                                                let bgP2 = { x: p1.x + approxW + 8, y: p1.y + approxH + 8 };
+                                                                                cv.rectangle(dst, bgP1, bgP2, [0, 0, 0, 150], -1);
+
+                                                                                // ID Text
+                                                                                cv.putText(dst, idStr, { x: p1.x + 5, y: p1.y + approxH + 2 }, cv.FONT_HERSHEY_SIMPLEX, fontScale, [255, 255, 0, 255], thickness);
+                                                                                corners.delete();
+                                    }
                                 }
                             }
 
