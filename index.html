@@ -17,7 +17,7 @@
         (function () {
             const SOURCES = [
                 "https://docs.opencv.org/4.13.0/opencv.js",
-                "https://docs.opencv.org/4.x/opencv.js"   // fallback if the pinned version 404s
+                "https://docs.opencv.org/4.x/opencv.js"
             ];
             let idx = 0, settled = false;
 
@@ -57,13 +57,7 @@
         .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-        .tab-active {
-            background-color: #eff6ff;
-            border-bottom: 2px solid #2563eb;
-            color: #2563eb;
-            font-weight: 600;
-        }
+        .tab-active { background-color: #eff6ff; border-bottom: 2px solid #2563eb; color: #2563eb; font-weight: 600; }
         canvas { max-width: 100%; height: auto; display: block; margin: 0 auto; }
     </style>
 </head>
@@ -75,9 +69,16 @@
                 <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Computer Vision Calibration Suite</h1>
                 <p class="text-sm sm:text-base text-slate-500 mt-2">Generate and detect Checkerboards, ArUco, and ChArUco patterns entirely in-browser.</p>
             </div>
-            <div id="loadingStatus" class="flex items-center text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-200 shadow-sm w-full md:w-auto justify-center md:justify-start">
-                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                <span class="font-medium text-sm sm:text-base">Loading OpenCV.js Engine...</span>
+            
+            <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                <div id="loadingStatus" class="flex items-center text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-200 shadow-sm w-full sm:w-auto justify-center">
+                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <span class="font-medium text-sm">Loading Engine...</span>
+                </div>
+                <button onclick="openSettingsModal()" class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-600 rounded-lg shadow-sm hover:bg-slate-50 hover:text-blue-600 transition-colors w-full sm:w-auto justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    Settings
+                </button>
             </div>
         </header>
 
@@ -110,18 +111,14 @@
                         <label class="block text-sm text-slate-600 mb-1">Unit</label>
                         <select id="cbUnit" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawCheckerboard()">
                             <option value="px">Pixels (px)</option>
-                            <option value="in">Inches (in)</option>
+                            <option value="in" selected>Inches (in)</option>
                             <option value="cm">Centimeters (cm)</option>
                             <option value="mm">Millimeters (mm)</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm text-slate-600 mb-1">Target DPI</label>
-                        <input type="number" id="cbDPI" value="100" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCheckerboard()">
-                    </div>
-                    <div class="col-span-2">
                         <label class="block text-sm text-slate-600 mb-1">Square Size</label>
-                        <input type="number" id="cbSize" value="100" min="0.1" step="0.1" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCheckerboard()">
+                        <input type="number" id="cbSize" value="1" min="0.1" step="0.1" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCheckerboard()">
                     </div>
                 </div>
                 
@@ -129,7 +126,7 @@
                     <button onclick="downloadCanvas('canvasCheckerboard', 'checkerboard.png')" class="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg font-semibold shadow-sm flex justify-center items-center transition-colors">
                         Save PNG
                     </button>
-                    <button onclick="openPdfModal('canvasCheckerboard', 'checkerboard', 'cbDPI')" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2 transition-colors">
+                    <button onclick="openPdfModal('canvasCheckerboard', 'checkerboard')" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2 transition-colors">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                         PDF Tiling
                     </button>
@@ -150,25 +147,21 @@
                         <select id="arDict" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawAruco()"></select>
                     </div>
                     <div>
-                        <label class="block text-sm text-slate-600 mb-1">Unit</label>
-                        <select id="arUnit" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawAruco()">
-                            <option value="px">Pixels (px)</option>
-                            <option value="in">Inches (in)</option>
-                            <option value="cm">Centimeters (cm)</option>
-                            <option value="mm">Millimeters (mm)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm text-slate-600 mb-1">Target DPI</label>
-                        <input type="number" id="arDPI" value="100" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawAruco()">
-                    </div>
-                    <div>
                         <label class="block text-sm text-slate-600 mb-1">Marker ID</label>
                         <input type="number" id="arId" value="42" min="0" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawAruco()">
                     </div>
                     <div>
+                        <label class="block text-sm text-slate-600 mb-1">Unit</label>
+                        <select id="arUnit" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawAruco()">
+                            <option value="px">Pixels (px)</option>
+                            <option value="in" selected>Inches (in)</option>
+                            <option value="cm">Centimeters (cm)</option>
+                            <option value="mm">Millimeters (mm)</option>
+                        </select>
+                    </div>
+                    <div class="col-span-2">
                         <label class="block text-sm text-slate-600 mb-1">Marker Size</label>
-                        <input type="number" id="arSize" value="400" min="0.1" step="0.1" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawAruco()">
+                        <input type="number" id="arSize" value="4" min="0.1" step="0.1" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawAruco()">
                     </div>
                 </div>
                 
@@ -176,7 +169,7 @@
                     <button onclick="downloadCanvas('canvasAruco', 'aruco.png')" class="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg font-semibold shadow-sm flex justify-center items-center transition-colors">
                         Save PNG
                     </button>
-                    <button onclick="openPdfModal('canvasAruco', 'aruco', 'arDPI')" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2 transition-colors">
+                    <button onclick="openPdfModal('canvasAruco', 'aruco')" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2 transition-colors">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                         PDF Tiling
                     </button>
@@ -197,19 +190,6 @@
                         <select id="chDict" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawCharuco()"></select>
                     </div>
                     <div>
-                        <label class="block text-sm text-slate-600 mb-1">Unit</label>
-                        <select id="chUnit" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawCharuco()">
-                            <option value="px">Pixels (px)</option>
-                            <option value="in">Inches (in)</option>
-                            <option value="cm">Centimeters (cm)</option>
-                            <option value="mm">Millimeters (mm)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm text-slate-600 mb-1">Target DPI</label>
-                        <input type="number" id="chDPI" value="100" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
-                    </div>
-                    <div>
                         <label class="block text-sm text-slate-600 mb-1">Cols (squares)</label>
                         <input type="number" id="chCols" value="7" min="3" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
                     </div>
@@ -217,13 +197,22 @@
                         <label class="block text-sm text-slate-600 mb-1">Rows (squares)</label>
                         <input type="number" id="chRows" value="5" min="3" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
                     </div>
+                    <div class="col-span-2">
+                        <label class="block text-sm text-slate-600 mb-1">Unit</label>
+                        <select id="chUnit" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawCharuco()">
+                            <option value="px">Pixels (px)</option>
+                            <option value="in" selected>Inches (in)</option>
+                            <option value="cm">Centimeters (cm)</option>
+                            <option value="mm">Millimeters (mm)</option>
+                        </select>
+                    </div>
                     <div>
                         <label class="block text-sm text-slate-600 mb-1">Square Size</label>
-                        <input type="number" id="chSqSize" value="100" min="0.1" step="0.1" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
+                        <input type="number" id="chSqSize" value="1.5" min="0.1" step="0.1" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
                     </div>
                     <div>
                         <label class="block text-sm text-slate-600 mb-1">Marker Size</label>
-                        <input type="number" id="chMkSize" value="60" min="0.1" step="0.1" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
+                        <input type="number" id="chMkSize" value="1.1" min="0.1" step="0.1" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
                     </div>
                 </div>
 
@@ -231,7 +220,7 @@
                     <button onclick="downloadCanvas('canvasCharuco', 'charuco.png')" class="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg font-semibold shadow-sm flex justify-center items-center transition-colors">
                         Save PNG
                     </button>
-                    <button onclick="openPdfModal('canvasCharuco', 'charuco', 'chDPI')" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2 transition-colors">
+                    <button onclick="openPdfModal('canvasCharuco', 'charuco')" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2 transition-colors">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                         PDF Tiling
                     </button>
@@ -242,7 +231,7 @@
             </div>
         </div>
 
-        <!-- CAMERA DETECTOR (Unchanged for brevity, kept exactly as you requested) -->
+        <!-- CAMERA DETECTOR -->
         <div id="panelCameraDetector" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
             <div class="lg:col-span-4 bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-6">
 
@@ -275,7 +264,6 @@
                     </select>
                 </div>
 
-                <!-- Detector Config Panels -->
                 <div id="detArucoParams" class="space-y-3">
                     <div class="flex items-center justify-between mb-1">
                         <label class="block text-sm text-slate-600">Dictionary Expected</label>
@@ -350,51 +338,74 @@
 
     </div>
 
-    <!-- PDF EXPORT MODAL -->
+    <!-- GLOBAL SETTINGS MODAL -->
+    <div id="settingsModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 relative">
+            <h3 class="text-xl font-bold text-slate-800 mb-2">Global Settings</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Render Resolution (DPI)</label>
+                    <input type="number" id="globalDPI" value="300" min="50" class="w-full border border-slate-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-slate-500 mt-1.5 leading-snug">Pixels per inch. Higher DPI means sharper rendering but slower generation. 300 is standard for print.</p>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button onclick="closeSettingsModal()" class="px-5 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-lg hover:bg-slate-200 transition-colors">Cancel</button>
+                <button onclick="saveSettings()" class="px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition-colors">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF EXPORT MODAL WITH VISUAL PREVIEW -->
     <div id="pdfModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl p-6 relative">
             <h3 class="text-xl font-bold text-slate-800 mb-1">Export to PDF (Tiling)</h3>
             <p class="text-sm text-slate-500 mb-5">Large boards will automatically be tiled across multiple pages.</p>
             
             <input type="hidden" id="activePdfCanvas">
             <input type="hidden" id="activePdfFilename">
 
-            <div class="space-y-5">
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1">Print Resolution (DPI)</label>
-                    <input type="number" id="pdfDPI" value="100" class="w-full border border-slate-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
-                    <p class="text-xs text-slate-500 mt-1.5 leading-snug">Synced automatically with the Generator panel's Target DPI to maintain exact scale.</p>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-1">Page Size</label>
-                        <select id="pdfFormat" class="w-full border border-slate-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                            <option value="a4">A4</option>
-                            <option value="letter">US Letter</option>
-                            <option value="legal">US Legal</option>
-                        </select>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Controls Side -->
+                <div class="space-y-5">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Page Size</label>
+                            <select id="pdfFormat" class="w-full border border-slate-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                <option value="a4">A4</option>
+                                <option value="letter">US Letter</option>
+                                <option value="legal">US Legal</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Orientation</label>
+                            <select id="pdfOrientation" class="w-full border border-slate-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                <option value="p">Portrait</option>
+                                <option value="l">Landscape</option>
+                            </select>
+                        </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-1">Orientation</label>
-                        <select id="pdfOrientation" class="w-full border border-slate-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                            <option value="p">Portrait</option>
-                            <option value="l">Landscape</option>
-                        </select>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Unprintable Margin (inches)</label>
+                        <input type="number" id="pdfMargin" value="0.25" step="0.05" min="0" class="w-full border border-slate-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-xs text-slate-500 mt-1.5 leading-snug">Printers cannot print edge-to-edge. Typical margin is 0.25".</p>
+                    </div>
+                    
+                    <div class="bg-blue-50 border border-blue-100 p-3 rounded-lg">
+                        <h4 class="text-xs font-bold text-blue-800 uppercase tracking-wide mb-1">Output Summary</h4>
+                        <p id="pdfPreviewStats" class="text-sm font-medium text-blue-900 leading-relaxed"></p>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1">Unprintable Margin (inches)</label>
-                    <input type="number" id="pdfMargin" value="0.25" step="0.05" min="0" class="w-full border border-slate-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
-                    <p class="text-xs text-slate-500 mt-1.5 leading-snug">Most printers cannot print edge-to-edge. Typical margin is 0.25".</p>
-                </div>
-                
-                <div class="bg-blue-50 border border-blue-100 p-3 rounded-lg">
-                    <h4 class="text-xs font-bold text-blue-800 uppercase tracking-wide mb-1">Output Summary</h4>
-                    <p id="pdfPreviewStats" class="text-sm font-medium text-blue-900 leading-relaxed"></p>
+
+                <!-- Preview Side -->
+                <div class="bg-slate-100 rounded-lg p-4 flex flex-col items-center justify-center min-h-[250px] border border-slate-200">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 w-full text-center">Tiling Layout Preview</h4>
+                    <canvas id="pdfPreviewCanvas" class="shadow-sm max-w-full max-h-48"></canvas>
+                    <p class="text-[10px] text-slate-400 mt-2 text-center">Red dashed lines indicate the unprintable margin bounds.</p>
                 </div>
             </div>
 
-            <div class="mt-8 flex justify-end gap-3">
+            <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button onclick="closePdfModal()" class="px-5 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-lg hover:bg-slate-200 transition-colors">Cancel</button>
                 <button id="btnGeneratePdf" onclick="generatePdf()" class="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors flex gap-2 items-center">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -405,10 +416,34 @@
     </div>
 
     <script>
+        // --- GLOBAL SETTINGS LOGIC ---
+        function getGlobalDPI() {
+            return parseInt(localStorage.getItem('cv_calib_dpi')) || 300;
+        }
+
+        function openSettingsModal() {
+            document.getElementById('globalDPI').value = getGlobalDPI();
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        function saveSettings() {
+            const dpi = Math.max(10, parseInt(document.getElementById('globalDPI').value));
+            localStorage.setItem('cv_calib_dpi', dpi);
+            closeSettingsModal();
+            // Re-render currently visible boards with new DPI
+            drawCheckerboard();
+            drawAruco();
+            drawCharuco();
+        }
+
         // --- HELPER: PHYSICAL UNITS TO PIXELS ---
-        function getPx(val, unit, dpi) {
+        function getPx(val, unit) {
             val = parseFloat(val);
-            dpi = parseFloat(dpi) || 100;
+            const dpi = getGlobalDPI();
             if (unit === 'in') return val * dpi;
             if (unit === 'cm') return (val / 2.54) * dpi;
             if (unit === 'mm') return (val / 25.4) * dpi;
@@ -416,14 +451,9 @@
         }
 
         // --- PDF GENERATION & TILING LOGIC ---
-        function openPdfModal(canvasId, baseFilename, dpiElementId) {
+        function openPdfModal(canvasId, baseFilename) {
             document.getElementById('activePdfCanvas').value = canvasId;
             document.getElementById('activePdfFilename').value = baseFilename;
-            
-            // Sync DPI from the specific generator tab
-            const sourceDPI = document.getElementById(dpiElementId).value;
-            document.getElementById('pdfDPI').value = sourceDPI || 100;
-
             document.getElementById('pdfModal').classList.remove('hidden');
             updatePdfStats();
         }
@@ -432,7 +462,7 @@
             document.getElementById('pdfModal').classList.add('hidden');
         }
 
-        document.querySelectorAll('#pdfDPI, #pdfFormat, #pdfOrientation, #pdfMargin').forEach(el => {
+        document.querySelectorAll('#pdfFormat, #pdfOrientation, #pdfMargin').forEach(el => {
             el.addEventListener('input', updatePdfStats);
         });
 
@@ -441,7 +471,7 @@
             if (!canvasId) return;
             
             const canvas = document.getElementById(canvasId);
-            const dpi = parseFloat(document.getElementById('pdfDPI').value) || 100;
+            const dpi = getGlobalDPI();
             const formatStr = document.getElementById('pdfFormat').value;
             const orientation = document.getElementById('pdfOrientation').value;
             const marginIn = parseFloat(document.getElementById('pdfMargin').value) || 0;
@@ -471,6 +501,67 @@
             document.getElementById('pdfPreviewStats').innerHTML = 
                 `Board Physical Size: <strong>${imgWInches.toFixed(2)}" x ${imgHInches.toFixed(2)}"</strong><br>` +
                 `Requires: <strong>${totalPages} page(s)</strong> (${cols} columns x ${rows} rows grid)`;
+
+            // Render Visual Preview
+            drawPdfPreview(canvas, cols, rows, pageW, pageH, printW, printH, marginIn, dpi);
+        }
+
+        function drawPdfPreview(sourceCanvas, cols, rows, pageW, pageH, printW, printH, marginIn, dpi) {
+            const preview = document.getElementById('pdfPreviewCanvas');
+            const ctx = preview.getContext('2d');
+            
+            // Determine scale factor for the preview
+            const totalPhysW = cols * pageW;
+            const totalPhysH = rows * pageH;
+            const MAX_PREVIEW_W = 280; 
+            const MAX_PREVIEW_H = 180;
+            const scale = Math.min(MAX_PREVIEW_W / totalPhysW, MAX_PREVIEW_H / totalPhysH);
+
+            preview.width = totalPhysW * scale;
+            preview.height = totalPhysH * scale;
+
+            ctx.clearRect(0, 0, preview.width, preview.height);
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const pageX = c * pageW * scale;
+                    const pageY = r * pageH * scale;
+
+                    // Draw Paper (White with border)
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(pageX + 1, pageY + 1, (pageW * scale) - 2, (pageH * scale) - 2);
+                    ctx.strokeStyle = '#cbd5e1';
+                    ctx.setLineDash([]);
+                    ctx.strokeRect(pageX + 1, pageY + 1, (pageW * scale) - 2, (pageH * scale) - 2);
+
+                    // Draw Margin Bounds (Red dashed)
+                    ctx.strokeStyle = '#f87171'; // red-400
+                    ctx.setLineDash([2, 2]);
+                    ctx.strokeRect(
+                        pageX + (marginIn * scale), 
+                        pageY + (marginIn * scale), 
+                        printW * scale, 
+                        printH * scale
+                    );
+
+                    // Draw Sliced Canvas Image
+                    const sourceX = c * printW * dpi;
+                    const sourceY = r * printH * dpi;
+                    const sWidth = Math.min(printW * dpi, sourceCanvas.width - sourceX);
+                    const sHeight = Math.min(printH * dpi, sourceCanvas.height - sourceY);
+
+                    if (sWidth > 0 && sHeight > 0) {
+                        ctx.drawImage(
+                            sourceCanvas,
+                            sourceX, sourceY, sWidth, sHeight,
+                            pageX + (marginIn * scale), 
+                            pageY + (marginIn * scale), 
+                            (sWidth / dpi) * scale, 
+                            (sHeight / dpi) * scale
+                        );
+                    }
+                }
+            }
         }
 
         async function generatePdf() {
@@ -487,7 +578,7 @@
                 const filename = document.getElementById('activePdfFilename').value;
                 const canvas = document.getElementById(canvasId);
 
-                const dpi = parseFloat(document.getElementById('pdfDPI').value) || 100;
+                const dpi = getGlobalDPI();
                 const formatStr = document.getElementById('pdfFormat').value;
                 const orientation = document.getElementById('pdfOrientation').value;
                 const marginIn = parseFloat(document.getElementById('pdfMargin').value) || 0;
@@ -498,13 +589,11 @@
                 const pageW = pageSize.getWidth();
                 const pageH = pageSize.getHeight();
 
-                // Calculate exact printable boundaries
                 const printW = pageW - (marginIn * 2);
                 const printH = pageH - (marginIn * 2);
 
                 if (printW <= 0 || printH <= 0) throw new Error("Margin is larger than the page itself.");
 
-                // Map printable physical sizes back to pixel dimensions
                 const tileW_px = Math.round(printW * dpi);
                 const tileH_px = Math.round(printH * dpi);
 
@@ -512,9 +601,6 @@
                 const rows = Math.ceil(canvas.height / tileH_px);
 
                 let isFirstPage = true;
-
-                // Create a temporary off-screen canvas to explicitly crop the image.
-                // This guarantees we NEVER draw into the unprintable margin.
                 const tempCanvas = document.createElement('canvas');
                 const tempCtx = tempCanvas.getContext('2d');
 
@@ -525,11 +611,9 @@
                         }
                         isFirstPage = false;
 
-                        // Calculate bounds for this specific tile
                         const sourceX = c * tileW_px;
                         const sourceY = r * tileH_px;
                         
-                        // Prevent requesting pixels outside the bounds of the original canvas
                         const sWidth = Math.min(tileW_px, canvas.width - sourceX);
                         const sHeight = Math.min(tileH_px, canvas.height - sourceY);
 
@@ -538,11 +622,8 @@
                         tempCanvas.width = sWidth;
                         tempCanvas.height = sHeight;
                         
-                        // Fill background explicitly with white
                         tempCtx.fillStyle = '#ffffff';
                         tempCtx.fillRect(0, 0, sWidth, sHeight);
-                        
-                        // Slice the exact sub-rectangle out of the main canvas
                         tempCtx.drawImage(
                             canvas, 
                             sourceX, sourceY, sWidth, sHeight,
@@ -550,12 +631,9 @@
                         );
 
                         const tileData = tempCanvas.toDataURL('image/png', 1.0);
-                        
-                        // Calculate physical layout sizes based strictly on the sliced pixel dimensions
                         const drawWInches = sWidth / dpi;
                         const drawHInches = sHeight / dpi;
 
-                        // Force the print explicitly starting exactly AT the margin offset boundary
                         pdf.addImage(tileData, 'PNG', marginIn, marginIn, drawWInches, drawHInches);
                     }
                 }
@@ -591,6 +669,11 @@
             'DICT_ARUCO_ORIGINAL'
         ];
 
+        // Optimized subset for auto-scanning (1000 sets contain all smaller subsets natively)
+        const AUTO_SCAN_DICTS = [
+            'DICT_4X4_1000', 'DICT_5X5_1000', 'DICT_6X6_1000', 'DICT_7X7_1000', 'DICT_ARUCO_ORIGINAL'
+        ];
+
         function drawErrorOnCanvas(canvasId, msg) {
             const canvas = document.getElementById(canvasId);
             const ctx = canvas.getContext('2d');
@@ -605,17 +688,9 @@
         }
 
         const CV_UTILS = {
-            fn: function (...names) {
-                for (const n of names) if (typeof cv[n] === 'function') return cv[n];
-                return null;
-            },
-            klass: function (...names) {
-                for (const n of names) if (typeof cv[n] === 'function') return cv[n];
-                return null;
-            },
-            scalar: function (a, b, c, d) {
-                return (typeof cv.Scalar === 'function') ? new cv.Scalar(a, b, c, d) : [a, b, c, d];
-            },
+            fn: function (...names) { for (const n of names) if (typeof cv[n] === 'function') return cv[n]; return null; },
+            klass: function (...names) { for (const n of names) if (typeof cv[n] === 'function') return cv[n]; return null; },
+            scalar: function (a, b, c, d) { return (typeof cv.Scalar === 'function') ? new cv.Scalar(a, b, c, d) : [a, b, c, d]; },
             getDict: function (dictName) {
                 const fallbackMap = {
                     'DICT_4X4_50': 0, 'DICT_4X4_100': 1, 'DICT_4X4_250': 2, 'DICT_4X4_1000': 3,
@@ -784,8 +859,8 @@
             } else {
                 statusEl.innerHTML = `
                     <svg class="mr-2 h-5 w-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                    <span class="font-medium text-sm sm:text-base text-emerald-700">OpenCV Ready</span>`;
-                statusEl.className = "flex items-center bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200 shadow-sm w-full md:w-auto justify-center md:justify-start";
+                    <span class="font-medium text-sm text-emerald-700">OpenCV Ready</span>`;
+                statusEl.className = "flex items-center bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200 shadow-sm w-full sm:w-auto justify-center";
             }
             document.getElementById('mainTabs').classList.remove('pointer-events-none', 'opacity-50');
 
@@ -848,8 +923,7 @@
             const rows = parseInt(document.getElementById('cbRows').value);
             
             const unit = document.getElementById('cbUnit').value;
-            const dpi = document.getElementById('cbDPI').value;
-            const sizePx = Math.round(getPx(document.getElementById('cbSize').value, unit, dpi));
+            const sizePx = Math.round(getPx(document.getElementById('cbSize').value, unit));
 
             const canvas = document.getElementById('canvasCheckerboard');
             canvas.width = cols * sizePx; canvas.height = rows * sizePx;
@@ -868,8 +942,7 @@
                 const id = parseInt(document.getElementById('arId').value);
                 
                 const unit = document.getElementById('arUnit').value;
-                const dpi = document.getElementById('arDPI').value;
-                const sizePx = Math.round(getPx(document.getElementById('arSize').value, unit, dpi));
+                const sizePx = Math.round(getPx(document.getElementById('arSize').value, unit));
 
                 CV_UTILS.drawMarker(dictionary, id, sizePx, markerImage);
                 cv.imshow('canvasAruco', markerImage);
@@ -889,12 +962,11 @@
                 const dictName = document.getElementById('chDict').value;
                 
                 const unit = document.getElementById('chUnit').value;
-                const dpi = document.getElementById('chDPI').value;
                 
-                const sqSzPx = getPx(document.getElementById('chSqSize').value, unit, dpi);
-                const mkSzPx = getPx(document.getElementById('chMkSize').value, unit, dpi);
+                const sqSzPx = getPx(document.getElementById('chSqSize').value, unit);
+                const mkSzPx = getPx(document.getElementById('chMkSize').value, unit);
                 
-                if (mkSzPx >= sqSzPx) return; // Prevent library aborts
+                if (mkSzPx >= sqSzPx) return; 
 
                 const cols = parseInt(document.getElementById('chCols').value);
                 const rows = parseInt(document.getElementById('chRows').value);
@@ -1180,6 +1252,7 @@
                                 }
                             }
 
+                            // Smart Auto-Scan Logic using the 1000 sets
                             if (isAuto) {
                                 statusTxt.classList.remove('hidden');
                                 if (nMarkers > 0) {
@@ -1189,8 +1262,8 @@
                                     statusTxt.innerHTML = `Scanning... trying ${dictName}`;
                                     window.autoScanFrame = (window.autoScanFrame || 0) + 1;
                                     if (window.autoScanFrame > 10) {
-                                        const sel = document.getElementById('detDict');
-                                        sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
+                                        window.autoScanIndex = ((window.autoScanIndex || 0) + 1) % AUTO_SCAN_DICTS.length;
+                                        document.getElementById('detDict').value = AUTO_SCAN_DICTS[window.autoScanIndex];
                                         window.autoScanFrame = 0;
                                         invalidateDetector();
                                     }
