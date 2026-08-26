@@ -11,9 +11,7 @@
     <!-- jsPDF for PDF generation and Tiling -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-    <!--
-      OpenCV.js loader.
-    -->
+    <!-- OpenCV.js loader -->
     <script>
         var Module = {};
         (function () {
@@ -39,9 +37,9 @@
                 s.src = url;
                 s.onerror = tryNext;
                 s.onload = function () {
-                    if (typeof window.cv === "function") {            // MODULARIZE-style build
+                    if (typeof window.cv === "function") {
                         window.cv().then(m => { window.cv = m; settle(); });
-                    } else if (window.cv && window.cv.Mat) {          // already initialised
+                    } else if (window.cv && window.cv.Mat) {
                         settle();
                     }
                 };
@@ -108,19 +106,32 @@
                         <label class="block text-sm text-slate-600 mb-1">Rows</label>
                         <input type="number" id="cbRows" value="6" min="3" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCheckerboard()">
                     </div>
-                </div>
-                <div>
-                    <label class="block text-sm text-slate-600 mb-1">Square Size (px)</label>
-                    <input type="number" id="cbSize" value="100" min="10" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCheckerboard()">
+                    <div>
+                        <label class="block text-sm text-slate-600 mb-1">Unit</label>
+                        <select id="cbUnit" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawCheckerboard()">
+                            <option value="px">Pixels (px)</option>
+                            <option value="in">Inches (in)</option>
+                            <option value="cm">Centimeters (cm)</option>
+                            <option value="mm">Millimeters (mm)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-600 mb-1">Target DPI</label>
+                        <input type="number" id="cbDPI" value="100" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCheckerboard()">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-sm text-slate-600 mb-1">Square Size</label>
+                        <input type="number" id="cbSize" value="100" min="0.1" step="0.1" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCheckerboard()">
+                    </div>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-3 mt-4">
                     <button onclick="downloadCanvas('canvasCheckerboard', 'checkerboard.png')" class="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg font-semibold shadow-sm flex justify-center items-center transition-colors">
                         Save PNG
                     </button>
-                    <button onclick="openPdfModal('canvasCheckerboard', 'checkerboard')" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2 transition-colors">
+                    <button onclick="openPdfModal('canvasCheckerboard', 'checkerboard', 'cbDPI')" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2 transition-colors">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                        PDF 
+                        PDF Tiling
                     </button>
                 </div>
             </div>
@@ -133,18 +144,31 @@
         <div id="panelGenAruco" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
             <div class="lg:col-span-4 bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
                 <h2 class="text-lg font-semibold">ArUco Config</h2>
-                <div>
-                    <label class="block text-sm text-slate-600 mb-1">Dictionary</label>
-                    <select id="arDict" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawAruco()"></select>
-                </div>
                 <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-sm text-slate-600 mb-1">Dictionary</label>
+                        <select id="arDict" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawAruco()"></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-600 mb-1">Unit</label>
+                        <select id="arUnit" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawAruco()">
+                            <option value="px">Pixels (px)</option>
+                            <option value="in">Inches (in)</option>
+                            <option value="cm">Centimeters (cm)</option>
+                            <option value="mm">Millimeters (mm)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-600 mb-1">Target DPI</label>
+                        <input type="number" id="arDPI" value="100" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawAruco()">
+                    </div>
                     <div>
                         <label class="block text-sm text-slate-600 mb-1">Marker ID</label>
                         <input type="number" id="arId" value="42" min="0" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawAruco()">
                     </div>
                     <div>
-                        <label class="block text-sm text-slate-600 mb-1">Size (px)</label>
-                        <input type="number" id="arSize" value="400" min="50" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawAruco()">
+                        <label class="block text-sm text-slate-600 mb-1">Marker Size</label>
+                        <input type="number" id="arSize" value="400" min="0.1" step="0.1" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawAruco()">
                     </div>
                 </div>
                 
@@ -152,9 +176,9 @@
                     <button onclick="downloadCanvas('canvasAruco', 'aruco.png')" class="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg font-semibold shadow-sm flex justify-center items-center transition-colors">
                         Save PNG
                     </button>
-                    <button onclick="openPdfModal('canvasAruco', 'aruco')" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2 transition-colors">
+                    <button onclick="openPdfModal('canvasAruco', 'aruco', 'arDPI')" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2 transition-colors">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                        PDF
+                        PDF Tiling
                     </button>
                 </div>
             </div>
@@ -167,11 +191,24 @@
         <div id="panelGenCharuco" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
             <div class="lg:col-span-4 bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
                 <h2 class="text-lg font-semibold">ChArUco Config</h2>
-                <div>
-                    <label class="block text-sm text-slate-600 mb-1">Dictionary</label>
-                    <select id="chDict" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawCharuco()"></select>
-                </div>
                 <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-sm text-slate-600 mb-1">Dictionary</label>
+                        <select id="chDict" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawCharuco()"></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-600 mb-1">Unit</label>
+                        <select id="chUnit" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" onchange="drawCharuco()">
+                            <option value="px">Pixels (px)</option>
+                            <option value="in">Inches (in)</option>
+                            <option value="cm">Centimeters (cm)</option>
+                            <option value="mm">Millimeters (mm)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-600 mb-1">Target DPI</label>
+                        <input type="number" id="chDPI" value="100" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
+                    </div>
                     <div>
                         <label class="block text-sm text-slate-600 mb-1">Cols (squares)</label>
                         <input type="number" id="chCols" value="7" min="3" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
@@ -181,12 +218,12 @@
                         <input type="number" id="chRows" value="5" min="3" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
                     </div>
                     <div>
-                        <label class="block text-sm text-slate-600 mb-1">Square Sz</label>
-                        <input type="number" id="chSqSize" value="100" min="20" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
+                        <label class="block text-sm text-slate-600 mb-1">Square Size</label>
+                        <input type="number" id="chSqSize" value="100" min="0.1" step="0.1" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
                     </div>
                     <div>
-                        <label class="block text-sm text-slate-600 mb-1">Marker Sz</label>
-                        <input type="number" id="chMkSize" value="60" min="10" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
+                        <label class="block text-sm text-slate-600 mb-1">Marker Size</label>
+                        <input type="number" id="chMkSize" value="60" min="0.1" step="0.1" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
                     </div>
                 </div>
 
@@ -194,9 +231,9 @@
                     <button onclick="downloadCanvas('canvasCharuco', 'charuco.png')" class="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg font-semibold shadow-sm flex justify-center items-center transition-colors">
                         Save PNG
                     </button>
-                    <button onclick="openPdfModal('canvasCharuco', 'charuco')" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2 transition-colors">
+                    <button onclick="openPdfModal('canvasCharuco', 'charuco', 'chDPI')" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2 transition-colors">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                        PDF
+                        PDF Tiling
                     </button>
                 </div>
             </div>
@@ -205,7 +242,7 @@
             </div>
         </div>
 
-        <!-- CAMERA DETECTOR -->
+        <!-- CAMERA DETECTOR (Unchanged for brevity, kept exactly as you requested) -->
         <div id="panelCameraDetector" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
             <div class="lg:col-span-4 bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-6">
 
@@ -324,9 +361,9 @@
 
             <div class="space-y-5">
                 <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1">Target Print DPI</label>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Print Resolution (DPI)</label>
                     <input type="number" id="pdfDPI" value="100" class="w-full border border-slate-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
-                    <p class="text-xs text-slate-500 mt-1.5 leading-snug">Controls physical size. At 100 DPI, a 100px square prints exactly 1 inch wide.</p>
+                    <p class="text-xs text-slate-500 mt-1.5 leading-snug">Synced automatically with the Generator panel's Target DPI to maintain exact scale.</p>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -368,10 +405,25 @@
     </div>
 
     <script>
+        // --- HELPER: PHYSICAL UNITS TO PIXELS ---
+        function getPx(val, unit, dpi) {
+            val = parseFloat(val);
+            dpi = parseFloat(dpi) || 100;
+            if (unit === 'in') return val * dpi;
+            if (unit === 'cm') return (val / 2.54) * dpi;
+            if (unit === 'mm') return (val / 25.4) * dpi;
+            return val; // px
+        }
+
         // --- PDF GENERATION & TILING LOGIC ---
-        function openPdfModal(canvasId, baseFilename) {
+        function openPdfModal(canvasId, baseFilename, dpiElementId) {
             document.getElementById('activePdfCanvas').value = canvasId;
             document.getElementById('activePdfFilename').value = baseFilename;
+            
+            // Sync DPI from the specific generator tab
+            const sourceDPI = document.getElementById(dpiElementId).value;
+            document.getElementById('pdfDPI').value = sourceDPI || 100;
+
             document.getElementById('pdfModal').classList.remove('hidden');
             updatePdfStats();
         }
@@ -380,7 +432,6 @@
             document.getElementById('pdfModal').classList.add('hidden');
         }
 
-        // Auto-update stats whenever a user modifies PDF parameters
         document.querySelectorAll('#pdfDPI, #pdfFormat, #pdfOrientation, #pdfMargin').forEach(el => {
             el.addEventListener('input', updatePdfStats);
         });
@@ -428,7 +479,6 @@
             btn.innerHTML = 'Processing...';
             btn.disabled = true;
 
-            // Small delay to allow button state to visually update
             await new Promise(r => setTimeout(r, 50));
 
             try {
@@ -442,27 +492,32 @@
                 const orientation = document.getElementById('pdfOrientation').value;
                 const marginIn = parseFloat(document.getElementById('pdfMargin').value) || 0;
 
-                const imgWInches = canvas.width / dpi;
-                const imgHInches = canvas.height / dpi;
-
                 const pdf = new jsPDF({ orientation: orientation, unit: 'in', format: formatStr });
 
                 const pageSize = pdf.internal.pageSize;
                 const pageW = pageSize.getWidth();
                 const pageH = pageSize.getHeight();
 
+                // Calculate exact printable boundaries
                 const printW = pageW - (marginIn * 2);
                 const printH = pageH - (marginIn * 2);
 
                 if (printW <= 0 || printH <= 0) throw new Error("Margin is larger than the page itself.");
 
-                const cols = Math.ceil(imgWInches / printW);
-                const rows = Math.ceil(imgHInches / printH);
+                // Map printable physical sizes back to pixel dimensions
+                const tileW_px = Math.round(printW * dpi);
+                const tileH_px = Math.round(printH * dpi);
 
-                const imgData = canvas.toDataURL('image/png', 1.0);
+                const cols = Math.ceil(canvas.width / tileW_px);
+                const rows = Math.ceil(canvas.height / tileH_px);
+
                 let isFirstPage = true;
 
-                // Loop through our calculated grid
+                // Create a temporary off-screen canvas to explicitly crop the image.
+                // This guarantees we NEVER draw into the unprintable margin.
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+
                 for (let r = 0; r < rows; r++) {
                     for (let c = 0; c < cols; c++) {
                         if (!isFirstPage) {
@@ -470,12 +525,38 @@
                         }
                         isFirstPage = false;
 
-                        // To create the tile, we offset the image placement negatively.
-                        // jsPDF inherently clips anything drawn outside the page boundaries.
-                        const xOffset = marginIn - (c * printW);
-                        const yOffset = marginIn - (r * printH);
+                        // Calculate bounds for this specific tile
+                        const sourceX = c * tileW_px;
+                        const sourceY = r * tileH_px;
+                        
+                        // Prevent requesting pixels outside the bounds of the original canvas
+                        const sWidth = Math.min(tileW_px, canvas.width - sourceX);
+                        const sHeight = Math.min(tileH_px, canvas.height - sourceY);
 
-                        pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgWInches, imgHInches);
+                        if (sWidth <= 0 || sHeight <= 0) continue;
+
+                        tempCanvas.width = sWidth;
+                        tempCanvas.height = sHeight;
+                        
+                        // Fill background explicitly with white
+                        tempCtx.fillStyle = '#ffffff';
+                        tempCtx.fillRect(0, 0, sWidth, sHeight);
+                        
+                        // Slice the exact sub-rectangle out of the main canvas
+                        tempCtx.drawImage(
+                            canvas, 
+                            sourceX, sourceY, sWidth, sHeight,
+                            0, 0, sWidth, sHeight
+                        );
+
+                        const tileData = tempCanvas.toDataURL('image/png', 1.0);
+                        
+                        // Calculate physical layout sizes based strictly on the sliced pixel dimensions
+                        const drawWInches = sWidth / dpi;
+                        const drawHInches = sHeight / dpi;
+
+                        // Force the print explicitly starting exactly AT the margin offset boundary
+                        pdf.addImage(tileData, 'PNG', marginIn, marginIn, drawWInches, drawHInches);
                     }
                 }
 
@@ -496,10 +577,7 @@
         let isStreaming = false;
         let video, cap, src, dst, gray;
         let streamingAnimFrame;
-
-        let currentMatW = 0;
-        let currentMatH = 0;
-
+        let currentMatW = 0, currentMatH = 0;
         let videoDevices = [];
         let currentDeviceIndex = 0;
         let currentStream = null;
@@ -538,7 +616,6 @@
             scalar: function (a, b, c, d) {
                 return (typeof cv.Scalar === 'function') ? new cv.Scalar(a, b, c, d) : [a, b, c, d];
             },
-
             getDict: function (dictName) {
                 const fallbackMap = {
                     'DICT_4X4_50': 0, 'DICT_4X4_100': 1, 'DICT_4X4_250': 2, 'DICT_4X4_1000': 3,
@@ -550,38 +627,32 @@
                 let raw = cv[dictName] !== undefined ? cv[dictName] : fallbackMap[dictName];
                 const dictId = (raw && typeof raw === 'object' && 'value' in raw) ? raw.value : raw;
                 if (dictId === undefined) throw new Error("Unknown dictionary " + dictName);
-
                 const f = this.fn('getPredefinedDictionary', 'aruco_getPredefinedDictionary');
                 if (!f) throw new Error("Unable to map Dictionary API.");
                 return f(dictId);
             },
-
             drawMarker: function (dict, id, size, img) {
                 const f = this.fn('generateImageMarker', 'aruco_generateImageMarker');
                 if (f) return f(dict, id, size, img, 1);
                 if (typeof dict.generateImageMarker === 'function') return dict.generateImageMarker(id, size, img, 1);
                 throw new Error("Unable to map Image Marker API.");
             },
-
             newDetectorParameters: function () {
                 const K = this.klass('aruco_DetectorParameters', 'DetectorParameters');
                 if (!K) throw new Error("DetectorParameters missing from this build.");
                 return new K();
             },
-
             newRefineParameters: function () {
                 const K = this.klass('aruco_RefineParameters', 'RefineParameters');
                 if (!K) return null;
                 try { return new K(10, 3, true); } catch (e) { try { return new K(); } catch (e2) { return null; } }
             },
-
             newArucoDetector: function (dict, params, refine) {
                 const K = this.klass('aruco_ArucoDetector', 'ArucoDetector');
                 if (!K) throw new Error("ArucoDetector missing - this opencv.js was built without the objdetect aruco whitelist.");
                 if (refine) { try { return new K(dict, params, refine); } catch (e) { /* fall through */ } }
                 return new K(dict, params);
             },
-
             createCharucoBoard: function (cols, rows, sqSz, mkSz, dict) {
                 const K = this.klass('aruco_CharucoBoard', 'CharucoBoard');
                 if (!K) throw new Error("Unable to map ChArUco Board API.");
@@ -594,7 +665,6 @@
                     finally { emptyIds.delete(); }
                 }
             },
-
             newCharucoDetector: function (board) {
                 const K = this.klass('aruco_CharucoDetector', 'CharucoDetector');
                 if (!K) throw new Error("CharucoDetector missing from this build.");
@@ -613,27 +683,23 @@
                     [rp, dp, cp].forEach(o => { if (o && o.delete) o.delete(); });
                 }
             },
-
             drawCharucoBoard: function (board, outSize, img) {
                 if (typeof board.generateImage === 'function') return board.generateImage(outSize, img, 0, 1);
                 if (typeof board.draw === 'function') return board.draw(outSize, img, 0, 1);
                 throw new Error("Unable to map ChArUco rendering API.");
             },
-
             drawDetectedMarkers: function (img, corners, ids, color) {
                 const f = this.fn('drawDetectedMarkers', 'aruco_drawDetectedMarkers');
                 if (!f) return;
                 const c = color || this.scalar(0, 255, 0, 255);
                 try { f(img, corners, ids, c); } catch (e) { f(img, corners, ids); }
             },
-
             drawDetectedCornersCharuco: function (img, corners, ids, color) {
                 const f = this.fn('drawDetectedCornersCharuco', 'aruco_drawDetectedCornersCharuco');
                 if (!f) return;
                 const c = color || this.scalar(255, 0, 0, 255);
                 try { f(img, corners, ids, c); } catch (e) { f(img, corners, ids); }
             },
-
             missingSymbols: function () {
                 const need = [
                     ['getPredefinedDictionary', 'aruco_getPredefinedDictionary'],
@@ -650,10 +716,7 @@
         };
 
         const Detector = {
-            dictName: null, dict: null,
-            params: null, refine: null, aruco: null,
-            boardKey: null, board: null, charuco: null,
-
+            dictName: null, dict: null, params: null, refine: null, aruco: null, boardKey: null, board: null, charuco: null,
             aruco_for: function (dictName, subPix) {
                 const key = dictName + '|' + (subPix ? 1 : 0);
                 if (this.dictName !== key) {
@@ -667,14 +730,11 @@
                 }
                 return this.aruco;
             },
-
             applySubPix: function (params) {
-                const v = (cv.CORNER_REFINE_SUBPIX !== undefined) ? cv.CORNER_REFINE_SUBPIX
-                        : (cv.aruco_CORNER_REFINE_SUBPIX !== undefined ? cv.aruco_CORNER_REFINE_SUBPIX : 1);
+                const v = (cv.CORNER_REFINE_SUBPIX !== undefined) ? cv.CORNER_REFINE_SUBPIX : (cv.aruco_CORNER_REFINE_SUBPIX !== undefined ? cv.aruco_CORNER_REFINE_SUBPIX : 1);
                 const val = (v && typeof v === 'object' && 'value' in v) ? v.value : v;
-                try { params.cornerRefinementMethod = val; } catch (e) { /* field not bound */ }
+                try { params.cornerRefinementMethod = val; } catch (e) {}
             },
-
             charuco_for: function (dictName, subPix, cols, rows, sq, mk, legacy) {
                 const detector = this.aruco_for(dictName, subPix); 
                 const key = [dictName, cols, rows, sq, mk, legacy ? 1 : 0].join('|');
@@ -689,13 +749,11 @@
                 }
                 return { aruco: detector, charuco: this.charuco, board: this.board };
             },
-
             disposeBoard: function () {
                 if (this.charuco) { this.charuco.delete(); this.charuco = null; }
                 if (this.board) { this.board.delete(); this.board = null; }
                 this.boardKey = null;
             },
-
             disposeAll: function () {
                 this.disposeBoard();
                 if (this.aruco) { this.aruco.delete(); this.aruco = null; }
@@ -745,7 +803,7 @@
             if (typeof cv.findChessboardCorners !== 'function') {
                 const w = document.getElementById('checkerUnsupported');
                 w.classList.remove('hidden');
-                w.innerHTML = "<strong>Not available in this build.</strong> The official opencv.js whitelist ships calib3d without <code>findChessboardCorners</code>. Use ChArUco detection, or build opencv.js with those functions added to <code>platforms/js/opencv_js.config.py</code>.";
+                w.innerHTML = "<strong>Not available in this build.</strong> The official opencv.js whitelist ships calib3d without <code>findChessboardCorners</code>.";
             }
 
             drawCheckerboard();
@@ -756,9 +814,7 @@
 
         // --- UI ---
         function switchTab(tabId) {
-            if (tabId !== 'cameraDetector' && isStreaming) {
-                stopCamera();
-            }
+            if (tabId !== 'cameraDetector' && isStreaming) stopCamera();
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('tab-active'));
             document.querySelector(`[onclick="switchTab('${tabId}')"]`).classList.add('tab-active');
             document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.add('hidden'));
@@ -790,12 +846,16 @@
         function drawCheckerboard() {
             const cols = parseInt(document.getElementById('cbCols').value);
             const rows = parseInt(document.getElementById('cbRows').value);
-            const size = parseInt(document.getElementById('cbSize').value);
+            
+            const unit = document.getElementById('cbUnit').value;
+            const dpi = document.getElementById('cbDPI').value;
+            const sizePx = Math.round(getPx(document.getElementById('cbSize').value, unit, dpi));
+
             const canvas = document.getElementById('canvasCheckerboard');
-            canvas.width = cols * size; canvas.height = rows * size;
+            canvas.width = cols * sizePx; canvas.height = rows * sizePx;
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#000000";
-            for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if ((r + c) % 2 !== 0) ctx.fillRect(c * size, r * size, size, size);
+            for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if ((r + c) % 2 !== 0) ctx.fillRect(c * sizePx, r * sizePx, sizePx, sizePx);
         }
 
         function drawAruco() {
@@ -806,9 +866,12 @@
                 dictionary = CV_UTILS.getDict(dictName);
                 markerImage = new cv.Mat();
                 const id = parseInt(document.getElementById('arId').value);
-                const size = parseInt(document.getElementById('arSize').value);
+                
+                const unit = document.getElementById('arUnit').value;
+                const dpi = document.getElementById('arDPI').value;
+                const sizePx = Math.round(getPx(document.getElementById('arSize').value, unit, dpi));
 
-                CV_UTILS.drawMarker(dictionary, id, size, markerImage);
+                CV_UTILS.drawMarker(dictionary, id, sizePx, markerImage);
                 cv.imshow('canvasAruco', markerImage);
             } catch (err) {
                 console.error(err);
@@ -824,18 +887,23 @@
             let dictionary = null, board = null, boardImage = null;
             try {
                 const dictName = document.getElementById('chDict').value;
-                const sqSz = parseFloat(document.getElementById('chSqSize').value);
-                const mkSz = parseFloat(document.getElementById('chMkSize').value);
-                if (mkSz >= sqSz) return;
+                
+                const unit = document.getElementById('chUnit').value;
+                const dpi = document.getElementById('chDPI').value;
+                
+                const sqSzPx = getPx(document.getElementById('chSqSize').value, unit, dpi);
+                const mkSzPx = getPx(document.getElementById('chMkSize').value, unit, dpi);
+                
+                if (mkSzPx >= sqSzPx) return; // Prevent library aborts
 
                 const cols = parseInt(document.getElementById('chCols').value);
                 const rows = parseInt(document.getElementById('chRows').value);
 
                 dictionary = CV_UTILS.getDict(dictName);
-                board = CV_UTILS.createCharucoBoard(cols, rows, sqSz, mkSz, dictionary);
+                board = CV_UTILS.createCharucoBoard(cols, rows, sqSzPx, mkSzPx, dictionary);
 
                 boardImage = new cv.Mat();
-                let renderSize = new cv.Size(cols * sqSz, rows * sqSz);
+                let renderSize = new cv.Size(Math.round(cols * sqSzPx), Math.round(rows * sqSzPx));
 
                 CV_UTILS.drawCharucoBoard(board, renderSize, boardImage);
                 cv.imshow('canvasCharuco', boardImage);
