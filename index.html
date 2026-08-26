@@ -7,13 +7,12 @@
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- jsPDF for PDF generation and Tiling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <!--
       OpenCV.js loader.
-      The official build is a classic (non-MODULARIZE) Emscripten module: it picks up a
-      pre-existing global `Module` and fires Module.onRuntimeInitialized once the wasm is live.
-      Never wire onOpenCvReady() to the script tag's own onload handler - that fires
-      before the wasm is instantiated (cv.Mat is still undefined at that point).
     -->
     <script>
         var Module = {};
@@ -45,7 +44,6 @@
                     } else if (window.cv && window.cv.Mat) {          // already initialised
                         settle();
                     }
-                    // else: classic build -> Module.onRuntimeInitialized will fire
                 };
                 document.head.appendChild(s);
             }
@@ -73,21 +71,8 @@
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800 font-sans pb-12">
 
-    <!-- Print Promotion Banner -->
-    <div class="bg-blue-600 text-white text-center py-3 px-4 shadow-md relative z-10">
-        <p class="text-sm sm:text-base font-medium flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-2">
-            <span class="flex items-center gap-1">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                Need to print a large pattern across multiple pages?
-            </span>
-            <a href="https://sarin-jacob.github.io/img2pdf" target="_blank" class="underline font-bold hover:text-blue-200 transition-colors">
-                Use the tiling tool at sarin-jacob.github.io/img2pdf
-            </a>
-        </p>
-    </div>
-
     <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        <header class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-200 pb-4">
+        <header class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-200 pb-4 mt-4">
             <div>
                 <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Computer Vision Calibration Suite</h1>
                 <p class="text-sm sm:text-base text-slate-500 mt-2">Generate and detect Checkerboards, ArUco, and ChArUco patterns entirely in-browser.</p>
@@ -128,10 +113,16 @@
                     <label class="block text-sm text-slate-600 mb-1">Square Size (px)</label>
                     <input type="number" id="cbSize" value="100" min="10" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCheckerboard()">
                 </div>
-                <button onclick="downloadCanvas('canvasCheckerboard', 'checkerboard.png')" class="w-full mt-4 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                    Download PNG
-                </button>
+                
+                <div class="grid grid-cols-2 gap-3 mt-4">
+                    <button onclick="downloadCanvas('canvasCheckerboard', 'checkerboard.png')" class="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg font-semibold shadow-sm flex justify-center items-center transition-colors">
+                        Save PNG
+                    </button>
+                    <button onclick="openPdfModal('canvasCheckerboard', 'checkerboard')" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        PDF 
+                    </button>
+                </div>
             </div>
             <div class="lg:col-span-8 flex justify-center items-center bg-slate-200 rounded-xl border border-slate-300 overflow-auto p-4 custom-scroll min-h-[300px]">
                 <canvas id="canvasCheckerboard" class="bg-white shadow-lg"></canvas>
@@ -156,10 +147,16 @@
                         <input type="number" id="arSize" value="400" min="50" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawAruco()">
                     </div>
                 </div>
-                <button onclick="downloadCanvas('canvasAruco', 'aruco.png')" class="w-full mt-4 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                    Download PNG
-                </button>
+                
+                <div class="grid grid-cols-2 gap-3 mt-4">
+                    <button onclick="downloadCanvas('canvasAruco', 'aruco.png')" class="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg font-semibold shadow-sm flex justify-center items-center transition-colors">
+                        Save PNG
+                    </button>
+                    <button onclick="openPdfModal('canvasAruco', 'aruco')" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        PDF
+                    </button>
+                </div>
             </div>
             <div class="lg:col-span-8 flex justify-center items-center bg-slate-200 rounded-xl border border-slate-300 p-8 min-h-[300px]">
                 <canvas id="canvasAruco" class="bg-white shadow-lg"></canvas>
@@ -192,10 +189,16 @@
                         <input type="number" id="chMkSize" value="60" min="10" class="w-full border-slate-300 rounded-md p-2 border outline-none focus:ring-2 focus:ring-blue-500" oninput="drawCharuco()">
                     </div>
                 </div>
-                <button onclick="downloadCanvas('canvasCharuco', 'charuco.png')" class="w-full mt-4 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                    Download PNG
-                </button>
+
+                <div class="grid grid-cols-2 gap-3 mt-4">
+                    <button onclick="downloadCanvas('canvasCharuco', 'charuco.png')" class="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg font-semibold shadow-sm flex justify-center items-center transition-colors">
+                        Save PNG
+                    </button>
+                    <button onclick="openPdfModal('canvasCharuco', 'charuco')" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow flex justify-center items-center gap-2 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        PDF
+                    </button>
+                </div>
             </div>
             <div class="lg:col-span-8 flex justify-center items-center bg-slate-200 rounded-xl border border-slate-300 overflow-auto p-4 custom-scroll min-h-[300px]">
                 <canvas id="canvasCharuco" class="bg-white shadow-lg"></canvas>
@@ -310,7 +313,185 @@
 
     </div>
 
+    <!-- PDF EXPORT MODAL -->
+    <div id="pdfModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative">
+            <h3 class="text-xl font-bold text-slate-800 mb-1">Export to PDF (Tiling)</h3>
+            <p class="text-sm text-slate-500 mb-5">Large boards will automatically be tiled across multiple pages.</p>
+            
+            <input type="hidden" id="activePdfCanvas">
+            <input type="hidden" id="activePdfFilename">
+
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Target Print DPI</label>
+                    <input type="number" id="pdfDPI" value="100" class="w-full border border-slate-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
+                    <p class="text-xs text-slate-500 mt-1.5 leading-snug">Controls physical size. At 100 DPI, a 100px square prints exactly 1 inch wide.</p>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Page Size</label>
+                        <select id="pdfFormat" class="w-full border border-slate-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                            <option value="a4">A4</option>
+                            <option value="letter">US Letter</option>
+                            <option value="legal">US Legal</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Orientation</label>
+                        <select id="pdfOrientation" class="w-full border border-slate-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                            <option value="p">Portrait</option>
+                            <option value="l">Landscape</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Unprintable Margin (inches)</label>
+                    <input type="number" id="pdfMargin" value="0.25" step="0.05" min="0" class="w-full border border-slate-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-slate-500 mt-1.5 leading-snug">Most printers cannot print edge-to-edge. Typical margin is 0.25".</p>
+                </div>
+                
+                <div class="bg-blue-50 border border-blue-100 p-3 rounded-lg">
+                    <h4 class="text-xs font-bold text-blue-800 uppercase tracking-wide mb-1">Output Summary</h4>
+                    <p id="pdfPreviewStats" class="text-sm font-medium text-blue-900 leading-relaxed"></p>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-end gap-3">
+                <button onclick="closePdfModal()" class="px-5 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-lg hover:bg-slate-200 transition-colors">Cancel</button>
+                <button id="btnGeneratePdf" onclick="generatePdf()" class="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors flex gap-2 items-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    Download PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // --- PDF GENERATION & TILING LOGIC ---
+        function openPdfModal(canvasId, baseFilename) {
+            document.getElementById('activePdfCanvas').value = canvasId;
+            document.getElementById('activePdfFilename').value = baseFilename;
+            document.getElementById('pdfModal').classList.remove('hidden');
+            updatePdfStats();
+        }
+
+        function closePdfModal() {
+            document.getElementById('pdfModal').classList.add('hidden');
+        }
+
+        // Auto-update stats whenever a user modifies PDF parameters
+        document.querySelectorAll('#pdfDPI, #pdfFormat, #pdfOrientation, #pdfMargin').forEach(el => {
+            el.addEventListener('input', updatePdfStats);
+        });
+
+        function updatePdfStats() {
+            const canvasId = document.getElementById('activePdfCanvas').value;
+            if (!canvasId) return;
+            
+            const canvas = document.getElementById(canvasId);
+            const dpi = parseFloat(document.getElementById('pdfDPI').value) || 100;
+            const formatStr = document.getElementById('pdfFormat').value;
+            const orientation = document.getElementById('pdfOrientation').value;
+            const marginIn = parseFloat(document.getElementById('pdfMargin').value) || 0;
+
+            const imgWInches = canvas.width / dpi;
+            const imgHInches = canvas.height / dpi;
+
+            let pageW, pageH;
+            if (formatStr === 'a4') { pageW = 8.27; pageH = 11.69; }
+            else if (formatStr === 'letter') { pageW = 8.5; pageH = 11.0; }
+            else if (formatStr === 'legal') { pageW = 8.5; pageH = 14.0; }
+
+            if (orientation === 'l') { [pageW, pageH] = [pageH, pageW]; }
+
+            const printW = pageW - (marginIn * 2);
+            const printH = pageH - (marginIn * 2);
+
+            if (printW <= 0 || printH <= 0) {
+                document.getElementById('pdfPreviewStats').innerHTML = `<span class="text-red-600">Margin is too large for the page size.</span>`;
+                return;
+            }
+
+            const cols = Math.ceil(imgWInches / printW);
+            const rows = Math.ceil(imgHInches / printH);
+            const totalPages = cols * rows;
+
+            document.getElementById('pdfPreviewStats').innerHTML = 
+                `Board Physical Size: <strong>${imgWInches.toFixed(2)}" x ${imgHInches.toFixed(2)}"</strong><br>` +
+                `Requires: <strong>${totalPages} page(s)</strong> (${cols} columns x ${rows} rows grid)`;
+        }
+
+        async function generatePdf() {
+            const btn = document.getElementById('btnGeneratePdf');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = 'Processing...';
+            btn.disabled = true;
+
+            // Small delay to allow button state to visually update
+            await new Promise(r => setTimeout(r, 50));
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const canvasId = document.getElementById('activePdfCanvas').value;
+                const filename = document.getElementById('activePdfFilename').value;
+                const canvas = document.getElementById(canvasId);
+
+                const dpi = parseFloat(document.getElementById('pdfDPI').value) || 100;
+                const formatStr = document.getElementById('pdfFormat').value;
+                const orientation = document.getElementById('pdfOrientation').value;
+                const marginIn = parseFloat(document.getElementById('pdfMargin').value) || 0;
+
+                const imgWInches = canvas.width / dpi;
+                const imgHInches = canvas.height / dpi;
+
+                const pdf = new jsPDF({ orientation: orientation, unit: 'in', format: formatStr });
+
+                const pageSize = pdf.internal.pageSize;
+                const pageW = pageSize.getWidth();
+                const pageH = pageSize.getHeight();
+
+                const printW = pageW - (marginIn * 2);
+                const printH = pageH - (marginIn * 2);
+
+                if (printW <= 0 || printH <= 0) throw new Error("Margin is larger than the page itself.");
+
+                const cols = Math.ceil(imgWInches / printW);
+                const rows = Math.ceil(imgHInches / printH);
+
+                const imgData = canvas.toDataURL('image/png', 1.0);
+                let isFirstPage = true;
+
+                // Loop through our calculated grid
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        if (!isFirstPage) {
+                            pdf.addPage(formatStr, orientation);
+                        }
+                        isFirstPage = false;
+
+                        // To create the tile, we offset the image placement negatively.
+                        // jsPDF inherently clips anything drawn outside the page boundaries.
+                        const xOffset = marginIn - (c * printW);
+                        const yOffset = marginIn - (r * printH);
+
+                        pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgWInches, imgHInches);
+                    }
+                }
+
+                pdf.save(filename + '.pdf');
+                closePdfModal();
+            } catch (e) {
+                console.error(e);
+                alert("Error generating PDF: " + e.message);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+
+        // --- OPENCV ENGINE GLOBALS ---
         let cvReady = false;
         let isStreaming = false;
         let video, cap, src, dst, gray;
@@ -345,22 +526,6 @@
             ctx.fillText(msg, 20, 60);
         }
 
-        // =========================================================================
-        // CV_UTILS - ArUco/ChArUco binding router
-        //
-        // Naming rule in the official JS bindings (modules/js/generator/embindgen.py
-        // sets namespace_prefix_override = {'dnn':'', 'aruco':''}):
-        //   free functions of cv::aruco  -> NO prefix   (cv.getPredefinedDictionary)
-        //   classes of cv::aruco         -> aruco_      (cv.aruco_ArucoDetector)
-        // Both spellings are accepted below so custom builds keep working.
-        //
-        // Two hard constraints that the previous version violated:
-        //   1. cv.Scalar is an embind value-array, NOT a heap object -> it has no
-        //      .delete(); calling it throws and aborted every frame.
-        //   2. drawDetectedMarkers / drawDetectedCornersCharuco assert
-        //      channels() == 1 || channels() == 3. An RGBA (CV_8UC4) canvas Mat
-        //      throws. The pipeline below draws into a CV_8UC3 Mat.
-        // =========================================================================
         const CV_UTILS = {
             fn: function (...names) {
                 for (const n of names) if (typeof cv[n] === 'function') return cv[n];
@@ -371,7 +536,6 @@
                 return null;
             },
             scalar: function (a, b, c, d) {
-                // NEVER call .delete() on this.
                 return (typeof cv.Scalar === 'function') ? new cv.Scalar(a, b, c, d) : [a, b, c, d];
             },
 
@@ -456,7 +620,6 @@
                 throw new Error("Unable to map ChArUco rendering API.");
             },
 
-            // img must be CV_8UC1 or CV_8UC3. Colours are in the img's own channel order.
             drawDetectedMarkers: function (img, corners, ids, color) {
                 const f = this.fn('drawDetectedMarkers', 'aruco_drawDetectedMarkers');
                 if (!f) return;
@@ -486,13 +649,6 @@
             }
         };
 
-        // =========================================================================
-        // DETECTOR CACHE
-        // Building a Dictionary + DetectorParameters + ArucoDetector costs a WASM
-        // allocation each time. The old code did that once per frame and never freed
-        // the Dictionary, which leaked heap until the module aborted. These objects
-        // are now built once and rebuilt only when a setting changes.
-        // =========================================================================
         const Detector = {
             dictName: null, dict: null,
             params: null, refine: null, aruco: null,
@@ -520,7 +676,7 @@
             },
 
             charuco_for: function (dictName, subPix, cols, rows, sq, mk, legacy) {
-                const detector = this.aruco_for(dictName, subPix);   // keeps dict alive
+                const detector = this.aruco_for(dictName, subPix); 
                 const key = [dictName, cols, rows, sq, mk, legacy ? 1 : 0].join('|');
                 if (this.boardKey !== key) {
                     this.disposeBoard();
@@ -586,8 +742,6 @@
                 });
             });
 
-            // calib3d in the official opencv.js whitelist does not include
-            // findChessboardCorners / drawChessboardCorners / cornerSubPix.
             if (typeof cv.findChessboardCorners !== 'function') {
                 const w = document.getElementById('checkerUnsupported');
                 w.classList.remove('hidden');
@@ -661,7 +815,7 @@
                 drawErrorOnCanvas('canvasAruco', err.message);
             } finally {
                 if (markerImage) markerImage.delete();
-                if (dictionary && dictionary.delete) dictionary.delete();   // was leaking on every keystroke
+                if (dictionary && dictionary.delete) dictionary.delete(); 
             }
         }
 
@@ -837,7 +991,7 @@
                     if (dst) dst.delete();
                     if (gray) gray.delete();
                     src  = new cv.Mat(vh, vw, cv.CV_8UC4);
-                    dst  = new cv.Mat(vh, vw, cv.CV_8UC3);   // 3-channel: aruco draw* reject CV_8UC4
+                    dst  = new cv.Mat(vh, vw, cv.CV_8UC3);
                     gray = new cv.Mat(vh, vw, cv.CV_8UC1);
                     cap = new cv.VideoCapture(video);
                 }
@@ -876,7 +1030,7 @@
                                 D.aruco.detectMarkers(gray, markerCorners, markerIds);
                                 nMarkers = markerIds.rows;
 
-                                                                if (nMarkers > 0) {
+                                if (nMarkers > 0) {
                                     for (let i = 0; i < nMarkers; i++) {
                                         let corners = markerCorners.get(i);
                                         let p1 = { x: corners.data32F[0], y: corners.data32F[1] };
@@ -891,31 +1045,24 @@
                                         
                                         let idStr = markerIds.data32S[i].toString();
 
-                                        // Scale relative to marker size
                                         let markerWidth = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
                                         let fontScale = markerWidth / 100;
                                         fontScale = Math.max(0.4, Math.min(fontScale, 1.2));
                                         let thickness = Math.max(1, Math.round(fontScale * 2));
 
-                                        // Approximate text dimensions (OpenCV.js getTextSize can be flaky)
                                         let approxW = idStr.length * (20 * fontScale);
                                         let approxH = 25 * fontScale;
 
-                                        // Translucent black overlay
                                         let bgP1 = { x: p1.x + 2, y: p1.y + 2 };
                                         let bgP2 = { x: p1.x + approxW + 8, y: p1.y + approxH + 8 };
                                         cv.rectangle(dst, bgP1, bgP2, [0, 0, 0, 150], -1);
 
-                                        // ID Text
                                         cv.putText(dst, idStr, { x: p1.x + 5, y: p1.y + approxH + 2 }, cv.FONT_HERSHEY_SIMPLEX, fontScale, [255, 255, 0, 255], thickness);
                                         corners.delete();
                                     }
 
                                     let chCorners = new cv.Mat(), chIds = new cv.Mat();
                                     try {
-                                        // CharucoDetector.detectBoard replaces the removed
-                                        // cv::aruco::interpolateCornersCharuco. Feeding it the
-                                        // markers we already found avoids a second full detect.
                                         try {
                                             D.charuco.detectBoard(gray, chCorners, chIds, markerCorners, markerIds);
                                         } catch (e) {
@@ -933,7 +1080,7 @@
                                 const detector = Detector.aruco_for(dictName, subPix);
                                 detector.detectMarkers(gray, markerCorners, markerIds);
                                 nMarkers = markerIds.rows;
-                                                                if (nMarkers > 0) {
+                                if (nMarkers > 0) {
                                     for (let i = 0; i < nMarkers; i++) {
                                         let corners = markerCorners.get(i);
                                         let p1 = { x: corners.data32F[0], y: corners.data32F[1] };
@@ -947,22 +1094,18 @@
                                         cv.line(dst, p4, p1, color, 2);
                                         let idStr = markerIds.data32S[i].toString();
 
-                                        // Scale relative to marker size
                                         let markerWidth = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
                                         let fontScale = markerWidth / 100;
                                         fontScale = Math.max(0.4, Math.min(fontScale, 1.2));
                                         let thickness = Math.max(1, Math.round(fontScale * 2));
 
-                                        // Approximate text dimensions (OpenCV.js getTextSize can be flaky)
                                         let approxW = idStr.length * (20 * fontScale);
                                         let approxH = 25 * fontScale;
 
-                                        // Translucent black overlay
                                         let bgP1 = { x: p1.x + 2, y: p1.y + 2 };
                                         let bgP2 = { x: p1.x + approxW + 8, y: p1.y + approxH + 8 };
                                         cv.rectangle(dst, bgP1, bgP2, [0, 0, 0, 150], -1);
 
-                                        // ID Text
                                         cv.putText(dst, idStr, { x: p1.x + 5, y: p1.y + approxH + 2 }, cv.FONT_HERSHEY_SIMPLEX, fontScale, [255, 255, 0, 255], thickness);
                                         corners.delete();
                                     }
@@ -981,14 +1124,13 @@
                                         const sel = document.getElementById('detDict');
                                         sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
                                         window.autoScanFrame = 0;
-                                        invalidateDetector();     // dictionary changed -> rebuild
+                                        invalidateDetector();
                                     }
                                 }
                             } else {
                                 statusTxt.classList.add('hidden');
                             }
                         } finally {
-                            // Unconditional: the old code leaked these whenever a draw call threw.
                             markerCorners.delete();
                             markerIds.delete();
                         }
@@ -1004,7 +1146,7 @@
                         } else {
                             const cols = parseInt(document.getElementById('detCbCols').value);
                             const rows = parseInt(document.getElementById('detCbRows').value);
-                            const patternSize = new cv.Size(cols - 1, rows - 1);   // inner corners
+                            const patternSize = new cv.Size(cols - 1, rows - 1);
                             let corners = new cv.Mat();
                             try {
                                 const flags = (cv.CALIB_CB_ADAPTIVE_THRESH || 1) + (cv.CALIB_CB_NORMALIZE_IMAGE || 2);
