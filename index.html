@@ -11,46 +11,8 @@
     <!-- jsPDF for PDF generation and Tiling -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-    <!-- OpenCV.js loader -->
-    <script>
-        var Module = {};
-        (function () {
-            const SOURCES = [
-                "https://docs.opencv.org/4.13.0/opencv.js",
-                "https://docs.opencv.org/4.x/opencv.js"
-            ];
-            let idx = 0, settled = false;
-
-            function settle() {
-                if (settled) return;
-                settled = true;
-                clearTimeout(window.__cvTimeout);
-                onOpenCvReady();
-            }
-            Module.onRuntimeInitialized = settle;
-
-            function tryNext() {
-                if (idx >= SOURCES.length) { onOpenCvFailed("Could not download opencv.js."); return; }
-                const url = SOURCES[idx++];
-                const s = document.createElement("script");
-                s.async = true;
-                s.src = url;
-                s.onerror = tryNext;
-                s.onload = function () {
-                    if (typeof window.cv === "function") {
-                        window.cv().then(m => { window.cv = m; settle(); });
-                    } else if (window.cv && window.cv.Mat) {
-                        settle();
-                    }
-                };
-                document.head.appendChild(s);
-            }
-            window.__cvTimeout = setTimeout(function () {
-                if (!settled) onOpenCvFailed("opencv.js did not finish initialising (timed out).");
-            }, 90000);
-            tryNext();
-        })();
-    </script>
+    <!-- Chrome Labs: WebAssembly Feature Detector -->
+    <script src="https://unpkg.com/wasm-feature-detect/dist/umd/index.js"></script>
 
     <style>
         .custom-scroll::-webkit-scrollbar { height: 8px; width: 8px; }
@@ -73,7 +35,7 @@
             <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
                 <div id="loadingStatus" class="flex items-center text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-200 shadow-sm w-full sm:w-auto justify-center">
                     <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                    <span class="font-medium text-sm">Loading Engine...</span>
+                    <span class="font-medium text-sm" id="loadingText">Probing Browser CPU...</span>
                 </div>
                 <button onclick="openSettingsModal()" class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-600 rounded-lg shadow-sm hover:bg-slate-50 hover:text-blue-600 transition-colors w-full sm:w-auto justify-center">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
@@ -366,7 +328,6 @@
             <input type="hidden" id="activePdfFilename">
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Controls Side -->
                 <div class="space-y-5">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
@@ -397,7 +358,6 @@
                     </div>
                 </div>
 
-                <!-- Preview Side -->
                 <div class="bg-slate-100 rounded-lg p-4 flex flex-col items-center justify-center min-h-[250px] border border-slate-200">
                     <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 w-full text-center">Tiling Layout Preview</h4>
                     <canvas id="pdfPreviewCanvas" class="shadow-sm max-w-full max-h-48"></canvas>
@@ -415,32 +375,151 @@
         </div>
     </div>
 
+    <!-- JS LOGIC -->
     <script>
+        // --- DYNAMIC OPENCV LOADER (WASM / SIMD / THREADS FEATURE DETECTION) ---
+        var Module = {
+            onRuntimeInitialized: function() {
+                if (window.__cvSettled) return;
+                window.__cvSettled = true;
+                onOpenCvReady();
+            }
+        };
+
+        async function loadOpenCV(paths, onloadCallback) {
+            let OPENCV_URL = "";
+            let asmPath = paths["asm"] || "";
+            let wasmPath = paths["wasm"] || "";
+            let simdPath = paths["simd"] || "";
+            let threadsPath = paths["threads"] || "";
+            let threadsSimdPath = paths["threadsSimd"] || "";
+
+            let wasmSupported = !(typeof WebAssembly === 'undefined');
+            if (!wasmSupported && OPENCV_URL === "" && asmPath != "") {
+                OPENCV_URL = asmPath;
+                console.log("The OpenCV.js for Asm.js is loaded now");
+            } else if (!wasmSupported && asmPath == ""){
+                throw new Error("The browser supports the Asm.js only, but the path of OpenCV.js for Asm.js is empty");
+            }
+
+            let simdSupported = wasmSupported ? await wasmFeatureDetect.simd() : false;
+            let threadsSupported = wasmSupported ? await wasmFeatureDetect.threads() : false;
+
+            if (simdSupported && threadsSupported && threadsSimdPath != "") {
+                OPENCV_URL = threadsSimdPath;
+                console.log("The OpenCV.js with simd and threads optimization is loaded now");
+            } else if (simdSupported && simdPath != "") {
+                if (threadsSupported && threadsSimdPath === "") {
+                    console.log("The browser supports simd and threads, but the path of OpenCV.js with simd and threads optimization is empty");
+                }
+                OPENCV_URL = simdPath;
+                console.log("The OpenCV.js with simd optimization is loaded now.");
+            } else if (threadsSupported && threadsPath != "") {
+                if (simdSupported && threadsSimdPath === "") {
+                    console.log("The browser supports simd and threads, but the path of OpenCV.js with simd and threads optimization is empty");
+                }
+                OPENCV_URL = threadsPath;
+                console.log("The OpenCV.js with threads optimization is loaded now");
+            } else if (wasmSupported && wasmPath != "") {
+                if(simdSupported && threadsSupported) {
+                    console.log("The browser supports simd and threads, but the path of OpenCV.js with simd and threads optimization is empty");
+                }
+                if (simdSupported) {
+                    console.log("The browser supports simd optimization, but the path of OpenCV.js with simd optimization is empty");
+                }
+                if (threadsSupported) {
+                    console.log("The browser supports threads optimization, but the path of OpenCV.js with threads optimization is empty");
+                }
+
+                OPENCV_URL = wasmPath;
+                console.log("The OpenCV.js for wasm is loaded now");
+            } else if (wasmSupported) {
+                console.log("The browser supports wasm, but the path of OpenCV.js for wasm is empty");
+
+                if (asmPath != "") {
+                    OPENCV_URL = asmPath;
+                    console.log("The OpenCV.js for Asm.js is loaded as fallback.");
+                }
+            }
+
+            if (OPENCV_URL === "") {
+                throw new Error("No available OpenCV.js, please check your paths");
+            }
+
+            const statusText = document.getElementById('loadingText');
+            if (statusText) statusText.innerText = "Downloading OpenCV Engine...";
+
+            let script = document.createElement('script');
+            script.setAttribute('async', '');
+            script.setAttribute('type', 'text/javascript');
+            script.addEventListener('load', () => {
+                onloadCallback();
+            });
+            script.addEventListener('error', () => {
+                throw new Error("Failed to load opencv.js from " + OPENCV_URL);
+            });
+            script.src = OPENCV_URL;
+            let node = document.getElementsByTagName('script')[0];
+            if (node.src != OPENCV_URL) {
+                node.parentNode.insertBefore(script, node);
+            }
+        }
+
+        // Initialize the loader process
+        (async function initApp() {
+            try {
+                await loadOpenCV({
+                    // Point to the local file you compiled with SIMD
+                    simd: "./opencv.js",       
+                    wasm: "./opencv.js" // Fallback to the same file (if you compile a separate non-simd version, point to it here)
+                }, function() {
+                    // Script downloaded. Now we wait for the Wasm initialization sequence.
+                    const statusText = document.getElementById('loadingText');
+                    if (statusText) statusText.innerText = "Initializing WASM Memory...";
+
+                    if (typeof window.cv === "function") {
+                        // Modularize approach
+                        window.cv().then(m => { 
+                            window.cv = m; 
+                            if (!window.__cvSettled) {
+                                window.__cvSettled = true;
+                                onOpenCvReady();
+                            }
+                        });
+                    } else if (window.cv && window.cv.Mat) {
+                        // Already initialized synchronously
+                        if (!window.__cvSettled) {
+                            window.__cvSettled = true;
+                            onOpenCvReady(); 
+                        }
+                    } else if (window.cv && typeof window.cv.onRuntimeInitialized === "function") {
+                        // Classic async
+                        window.cv.onRuntimeInitialized = function() {
+                            if (!window.__cvSettled) {
+                                window.__cvSettled = true;
+                                onOpenCvReady();
+                            }
+                        };
+                    }
+                    // Else: falls back to the global Module.onRuntimeInitialized hook defined above
+                });
+            } catch (e) {
+                onOpenCvFailed(e.message);
+            }
+        })();
+
+
         // --- GLOBAL SETTINGS LOGIC ---
-        function getGlobalDPI() {
-            return parseInt(localStorage.getItem('cv_calib_dpi')) || 300;
-        }
-
-        function openSettingsModal() {
-            document.getElementById('globalDPI').value = getGlobalDPI();
-            document.getElementById('settingsModal').classList.remove('hidden');
-        }
-
-        function closeSettingsModal() {
-            document.getElementById('settingsModal').classList.add('hidden');
-        }
-
+        function getGlobalDPI() { return parseInt(localStorage.getItem('cv_calib_dpi')) || 300; }
+        function openSettingsModal() { document.getElementById('globalDPI').value = getGlobalDPI(); document.getElementById('settingsModal').classList.remove('hidden'); }
+        function closeSettingsModal() { document.getElementById('settingsModal').classList.add('hidden'); }
         function saveSettings() {
             const dpi = Math.max(10, parseInt(document.getElementById('globalDPI').value));
             localStorage.setItem('cv_calib_dpi', dpi);
             closeSettingsModal();
-            // Re-render currently visible boards with new DPI
-            drawCheckerboard();
-            drawAruco();
-            drawCharuco();
+            drawCheckerboard(); drawAruco(); drawCharuco();
         }
 
-        // --- HELPER: PHYSICAL UNITS TO PIXELS ---
         function getPx(val, unit) {
             val = parseFloat(val);
             const dpi = getGlobalDPI();
@@ -458,18 +537,12 @@
             updatePdfStats();
         }
 
-        function closePdfModal() {
-            document.getElementById('pdfModal').classList.add('hidden');
-        }
-
-        document.querySelectorAll('#pdfFormat, #pdfOrientation, #pdfMargin').forEach(el => {
-            el.addEventListener('input', updatePdfStats);
-        });
+        function closePdfModal() { document.getElementById('pdfModal').classList.add('hidden'); }
+        document.querySelectorAll('#pdfFormat, #pdfOrientation, #pdfMargin').forEach(el => { el.addEventListener('input', updatePdfStats); });
 
         function updatePdfStats() {
             const canvasId = document.getElementById('activePdfCanvas').value;
             if (!canvasId) return;
-            
             const canvas = document.getElementById(canvasId);
             const dpi = getGlobalDPI();
             const formatStr = document.getElementById('pdfFormat').value;
@@ -483,7 +556,6 @@
             if (formatStr === 'a4') { pageW = 8.27; pageH = 11.69; }
             else if (formatStr === 'letter') { pageW = 8.5; pageH = 11.0; }
             else if (formatStr === 'legal') { pageW = 8.5; pageH = 14.0; }
-
             if (orientation === 'l') { [pageW, pageH] = [pageH, pageW]; }
 
             const printW = pageW - (marginIn * 2);
@@ -502,15 +574,12 @@
                 `Board Physical Size: <strong>${imgWInches.toFixed(2)}" x ${imgHInches.toFixed(2)}"</strong><br>` +
                 `Requires: <strong>${totalPages} page(s)</strong> (${cols} columns x ${rows} rows grid)`;
 
-            // Render Visual Preview
             drawPdfPreview(canvas, cols, rows, pageW, pageH, printW, printH, marginIn, dpi);
         }
 
         function drawPdfPreview(sourceCanvas, cols, rows, pageW, pageH, printW, printH, marginIn, dpi) {
             const preview = document.getElementById('pdfPreviewCanvas');
             const ctx = preview.getContext('2d');
-            
-            // Determine scale factor for the preview
             const totalPhysW = cols * pageW;
             const totalPhysH = rows * pageH;
             const MAX_PREVIEW_W = 280; 
@@ -519,7 +588,6 @@
 
             preview.width = totalPhysW * scale;
             preview.height = totalPhysH * scale;
-
             ctx.clearRect(0, 0, preview.width, preview.height);
 
             for (let r = 0; r < rows; r++) {
@@ -527,38 +595,23 @@
                     const pageX = c * pageW * scale;
                     const pageY = r * pageH * scale;
 
-                    // Draw Paper (White with border)
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(pageX + 1, pageY + 1, (pageW * scale) - 2, (pageH * scale) - 2);
                     ctx.strokeStyle = '#cbd5e1';
                     ctx.setLineDash([]);
                     ctx.strokeRect(pageX + 1, pageY + 1, (pageW * scale) - 2, (pageH * scale) - 2);
 
-                    // Draw Margin Bounds (Red dashed)
-                    ctx.strokeStyle = '#f87171'; // red-400
+                    ctx.strokeStyle = '#f87171'; 
                     ctx.setLineDash([2, 2]);
-                    ctx.strokeRect(
-                        pageX + (marginIn * scale), 
-                        pageY + (marginIn * scale), 
-                        printW * scale, 
-                        printH * scale
-                    );
+                    ctx.strokeRect(pageX + (marginIn * scale), pageY + (marginIn * scale), printW * scale, printH * scale);
 
-                    // Draw Sliced Canvas Image
                     const sourceX = c * printW * dpi;
                     const sourceY = r * printH * dpi;
                     const sWidth = Math.min(printW * dpi, sourceCanvas.width - sourceX);
                     const sHeight = Math.min(printH * dpi, sourceCanvas.height - sourceY);
 
                     if (sWidth > 0 && sHeight > 0) {
-                        ctx.drawImage(
-                            sourceCanvas,
-                            sourceX, sourceY, sWidth, sHeight,
-                            pageX + (marginIn * scale), 
-                            pageY + (marginIn * scale), 
-                            (sWidth / dpi) * scale, 
-                            (sHeight / dpi) * scale
-                        );
+                        ctx.drawImage(sourceCanvas, sourceX, sourceY, sWidth, sHeight, pageX + (marginIn * scale), pageY + (marginIn * scale), (sWidth / dpi) * scale, (sHeight / dpi) * scale);
                     }
                 }
             }
@@ -584,7 +637,6 @@
                 const marginIn = parseFloat(document.getElementById('pdfMargin').value) || 0;
 
                 const pdf = new jsPDF({ orientation: orientation, unit: 'in', format: formatStr });
-
                 const pageSize = pdf.internal.pageSize;
                 const pageW = pageSize.getWidth();
                 const pageH = pageSize.getHeight();
@@ -596,7 +648,6 @@
 
                 const tileW_px = Math.round(printW * dpi);
                 const tileH_px = Math.round(printH * dpi);
-
                 const cols = Math.ceil(canvas.width / tileW_px);
                 const rows = Math.ceil(canvas.height / tileH_px);
 
@@ -606,14 +657,11 @@
 
                 for (let r = 0; r < rows; r++) {
                     for (let c = 0; c < cols; c++) {
-                        if (!isFirstPage) {
-                            pdf.addPage(formatStr, orientation);
-                        }
+                        if (!isFirstPage) pdf.addPage(formatStr, orientation);
                         isFirstPage = false;
 
                         const sourceX = c * tileW_px;
                         const sourceY = r * tileH_px;
-                        
                         const sWidth = Math.min(tileW_px, canvas.width - sourceX);
                         const sHeight = Math.min(tileH_px, canvas.height - sourceY);
 
@@ -621,14 +669,9 @@
 
                         tempCanvas.width = sWidth;
                         tempCanvas.height = sHeight;
-                        
                         tempCtx.fillStyle = '#ffffff';
                         tempCtx.fillRect(0, 0, sWidth, sHeight);
-                        tempCtx.drawImage(
-                            canvas, 
-                            sourceX, sourceY, sWidth, sHeight,
-                            0, 0, sWidth, sHeight
-                        );
+                        tempCtx.drawImage(canvas, sourceX, sourceY, sWidth, sHeight, 0, 0, sWidth, sHeight);
 
                         const tileData = tempCanvas.toDataURL('image/png', 1.0);
                         const drawWInches = sWidth / dpi;
@@ -669,10 +712,7 @@
             'DICT_ARUCO_ORIGINAL'
         ];
 
-        // Optimized subset for auto-scanning (1000 sets contain all smaller subsets natively)
-        const AUTO_SCAN_DICTS = [
-            'DICT_4X4_1000', 'DICT_5X5_1000', 'DICT_6X6_1000', 'DICT_7X7_1000', 'DICT_ARUCO_ORIGINAL'
-        ];
+        const AUTO_SCAN_DICTS = ['DICT_4X4_1000', 'DICT_5X5_1000', 'DICT_6X6_1000', 'DICT_7X7_1000', 'DICT_ARUCO_ORIGINAL'];
 
         function drawErrorOnCanvas(canvasId, msg) {
             const canvas = document.getElementById(canvasId);
@@ -688,8 +728,8 @@
         }
 
         const CV_UTILS = {
-            fn: function (...names) { for (const n of names) if (typeof cv[n] === 'function') return cv[n]; return null; },
-            klass: function (...names) { for (const n of names) if (typeof cv[n] === 'function') return cv[n]; return null; },
+            fn: function (...names) { for (const n of names) if (cv[n] !== undefined) return cv[n]; return null; },
+            klass: function (...names) { for (const n of names) if (cv[n] !== undefined) return cv[n]; return null; },
             scalar: function (a, b, c, d) { return (typeof cv.Scalar === 'function') ? new cv.Scalar(a, b, c, d) : [a, b, c, d]; },
             getDict: function (dictName) {
                 const fallbackMap = {
@@ -850,7 +890,6 @@
 
         function onOpenCvReady() {
             cvReady = true;
-
             const missing = CV_UTILS.missingSymbols();
             const statusEl = document.getElementById('loadingStatus');
             if (missing.length) {
@@ -868,22 +907,19 @@
             dictSelects.forEach(sel => {
                 dictionaries.forEach(dict => {
                     let opt = document.createElement('option');
-                    opt.value = dict;
-                    opt.text = dict;
+                    opt.value = dict; opt.text = dict;
                     if (dict === 'DICT_6X6_250') opt.selected = true;
                     sel.appendChild(opt);
                 });
             });
 
-            if (typeof cv.findChessboardCorners !== 'function') {
+            if (cv.findChessboardCornersSB === undefined) {
                 const w = document.getElementById('checkerUnsupported');
                 w.classList.remove('hidden');
-                w.innerHTML = "<strong>Not available in this build.</strong> The official opencv.js whitelist ships calib3d without <code>findChessboardCorners</code>.";
+                w.innerHTML = "<strong>Not available in this build.</strong> The official opencv.js whitelist ships calib3d without <code>findChessboardCornersSB</code>.";
             }
 
-            drawCheckerboard();
-            drawAruco();
-            drawCharuco();
+            drawCheckerboard(); drawAruco(); drawCharuco();
             video = document.getElementById('videoInput');
         }
 
@@ -912,16 +948,13 @@
         function downloadCanvas(canvasId, filename) {
             const canvas = document.getElementById(canvasId);
             const link = document.createElement('a');
-            link.download = filename;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
+            link.download = filename; link.href = canvas.toDataURL('image/png'); link.click();
         }
 
         // --- GENERATORS ---
         function drawCheckerboard() {
             const cols = parseInt(document.getElementById('cbCols').value);
             const rows = parseInt(document.getElementById('cbRows').value);
-            
             const unit = document.getElementById('cbUnit').value;
             const sizePx = Math.round(getPx(document.getElementById('cbSize').value, unit));
 
@@ -940,15 +973,13 @@
                 dictionary = CV_UTILS.getDict(dictName);
                 markerImage = new cv.Mat();
                 const id = parseInt(document.getElementById('arId').value);
-                
                 const unit = document.getElementById('arUnit').value;
                 const sizePx = Math.round(getPx(document.getElementById('arSize').value, unit));
 
                 CV_UTILS.drawMarker(dictionary, id, sizePx, markerImage);
                 cv.imshow('canvasAruco', markerImage);
             } catch (err) {
-                console.error(err);
-                drawErrorOnCanvas('canvasAruco', err.message);
+                console.error(err); drawErrorOnCanvas('canvasAruco', err.message);
             } finally {
                 if (markerImage) markerImage.delete();
                 if (dictionary && dictionary.delete) dictionary.delete(); 
@@ -960,28 +991,22 @@
             let dictionary = null, board = null, boardImage = null;
             try {
                 const dictName = document.getElementById('chDict').value;
-                
                 const unit = document.getElementById('chUnit').value;
-                
                 const sqSzPx = getPx(document.getElementById('chSqSize').value, unit);
                 const mkSzPx = getPx(document.getElementById('chMkSize').value, unit);
-                
                 if (mkSzPx >= sqSzPx) return; 
 
                 const cols = parseInt(document.getElementById('chCols').value);
                 const rows = parseInt(document.getElementById('chRows').value);
-
                 dictionary = CV_UTILS.getDict(dictName);
                 board = CV_UTILS.createCharucoBoard(cols, rows, sqSzPx, mkSzPx, dictionary);
 
                 boardImage = new cv.Mat();
                 let renderSize = new cv.Size(Math.round(cols * sqSzPx), Math.round(rows * sqSzPx));
-
                 CV_UTILS.drawCharucoBoard(board, renderSize, boardImage);
                 cv.imshow('canvasCharuco', boardImage);
             } catch (err) {
-                console.error(err);
-                drawErrorOnCanvas('canvasCharuco', err.message);
+                console.error(err); drawErrorOnCanvas('canvasCharuco', err.message);
             } finally {
                 if (boardImage) boardImage.delete();
                 if (board && board.delete) board.delete();
@@ -997,15 +1022,11 @@
             } catch (e) { console.warn(e); }
         }
 
-        async function toggleCamera() {
-            if (!isStreaming) await startCamera();
-            else stopCamera();
-        }
+        async function toggleCamera() { if (!isStreaming) await startCamera(); else stopCamera(); }
 
         async function startCamera() {
             const errorMsg = document.getElementById('cameraErrorMsg');
             errorMsg.classList.add('hidden');
-
             try {
                 if (videoDevices.length === 0) {
                     const initialStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
@@ -1045,7 +1066,6 @@
 
                 isStreaming = true; torchEnabled = false; updateFlashUI();
                 requestAnimationFrame(processVideo);
-
             } catch (err) {
                 errorMsg.classList.remove('hidden');
                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -1063,14 +1083,11 @@
             if (src) { src.delete(); src = null; }
             if (dst) { dst.delete(); dst = null; }
             if (gray) { gray.delete(); gray = null; }
-            cap = null;
-            Detector.disposeAll();
-            currentMatW = 0; currentMatH = 0;
+            cap = null; Detector.disposeAll(); currentMatW = 0; currentMatH = 0;
 
             const btn = document.getElementById('btnToggleCamera');
             btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> Start Camera`;
             btn.className = "w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold shadow transition-colors flex justify-center items-center gap-2";
-
             document.getElementById('mobileCameraControls').classList.add('hidden');
             document.getElementById('canvasDetector').classList.add('hidden');
             document.getElementById('camPlaceholder').classList.remove('hidden');
@@ -1178,13 +1195,10 @@
                                         let p3 = { x: corners.data32F[4], y: corners.data32F[5] };
                                         let p4 = { x: corners.data32F[6], y: corners.data32F[7] };
                                         let color = [0, 255, 0, 255];
-                                        cv.line(dst, p1, p2, color, 2);
-                                        cv.line(dst, p2, p3, color, 2);
-                                        cv.line(dst, p3, p4, color, 2);
-                                        cv.line(dst, p4, p1, color, 2);
+                                        cv.line(dst, p1, p2, color, 2); cv.line(dst, p2, p3, color, 2);
+                                        cv.line(dst, p3, p4, color, 2); cv.line(dst, p4, p1, color, 2);
                                         
                                         let idStr = markerIds.data32S[i].toString();
-
                                         let markerWidth = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
                                         let fontScale = markerWidth / 100;
                                         fontScale = Math.max(0.4, Math.min(fontScale, 1.2));
@@ -1192,26 +1206,19 @@
 
                                         let approxW = idStr.length * (20 * fontScale);
                                         let approxH = 25 * fontScale;
-
                                         let bgP1 = { x: p1.x + 2, y: p1.y + 2 };
                                         let bgP2 = { x: p1.x + approxW + 8, y: p1.y + approxH + 8 };
                                         cv.rectangle(dst, bgP1, bgP2, [0, 0, 0, 150], -1);
-
                                         cv.putText(dst, idStr, { x: p1.x + 5, y: p1.y + approxH + 2 }, cv.FONT_HERSHEY_SIMPLEX, fontScale, [255, 255, 0, 255], thickness);
                                         corners.delete();
                                     }
 
                                     let chCorners = new cv.Mat(), chIds = new cv.Mat();
                                     try {
-                                        try {
-                                            D.charuco.detectBoard(gray, chCorners, chIds, markerCorners, markerIds);
-                                        } catch (e) {
-                                            D.charuco.detectBoard(gray, chCorners, chIds);
-                                        }
+                                        try { D.charuco.detectBoard(gray, chCorners, chIds, markerCorners, markerIds); }
+                                        catch (e) { D.charuco.detectBoard(gray, chCorners, chIds); }
                                         nCharuco = chIds.rows;
-                                        if (nCharuco > 0) {
-                                            CV_UTILS.drawDetectedCornersCharuco(dst, chCorners, chIds, CV_UTILS.scalar(255, 0, 0, 255));
-                                        }
+                                        if (nCharuco > 0) CV_UTILS.drawDetectedCornersCharuco(dst, chCorners, chIds, CV_UTILS.scalar(255, 0, 0, 255));
                                     } finally {
                                         chCorners.delete(); chIds.delete();
                                     }
@@ -1228,31 +1235,25 @@
                                         let p3 = { x: corners.data32F[4], y: corners.data32F[5] };
                                         let p4 = { x: corners.data32F[6], y: corners.data32F[7] };
                                         let color = [0, 255, 0, 255];
-                                        cv.line(dst, p1, p2, color, 2);
-                                        cv.line(dst, p2, p3, color, 2);
-                                        cv.line(dst, p3, p4, color, 2);
-                                        cv.line(dst, p4, p1, color, 2);
+                                        cv.line(dst, p1, p2, color, 2); cv.line(dst, p2, p3, color, 2);
+                                        cv.line(dst, p3, p4, color, 2); cv.line(dst, p4, p1, color, 2);
                                         let idStr = markerIds.data32S[i].toString();
 
                                         let markerWidth = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
-                                        let fontScale = markerWidth / 100;
-                                        fontScale = Math.max(0.4, Math.min(fontScale, 1.2));
+                                        let fontScale = Math.max(0.4, Math.min(markerWidth / 100, 1.2));
                                         let thickness = Math.max(1, Math.round(fontScale * 2));
-
                                         let approxW = idStr.length * (20 * fontScale);
                                         let approxH = 25 * fontScale;
 
                                         let bgP1 = { x: p1.x + 2, y: p1.y + 2 };
                                         let bgP2 = { x: p1.x + approxW + 8, y: p1.y + approxH + 8 };
                                         cv.rectangle(dst, bgP1, bgP2, [0, 0, 0, 150], -1);
-
                                         cv.putText(dst, idStr, { x: p1.x + 5, y: p1.y + approxH + 2 }, cv.FONT_HERSHEY_SIMPLEX, fontScale, [255, 255, 0, 255], thickness);
                                         corners.delete();
                                     }
                                 }
                             }
 
-                            // Smart Auto-Scan Logic using the 1000 sets
                             if (isAuto) {
                                 statusTxt.classList.remove('hidden');
                                 if (nMarkers > 0) {
@@ -1272,18 +1273,13 @@
                                 statusTxt.classList.add('hidden');
                             }
                         } finally {
-                            markerCorners.delete();
-                            markerIds.delete();
+                            markerCorners.delete(); markerIds.delete();
                         }
-
                         lastDetErr = "";
 
                     } else if (mode === 'checkerboard') {
-                        if (typeof cv.findChessboardCorners !== 'function') {
-                            cv.putText(dst, "findChessboardCorners not in this opencv.js build",
-                                       new cv.Point(15, 34), cv.FONT_HERSHEY_SIMPLEX, 0.7, CV_UTILS.scalar(255, 60, 60, 255), 2);
-                            cv.putText(dst, "Use ArUco / ChArUco, or build with calib3d corners enabled.",
-                                       new cv.Point(15, 68), cv.FONT_HERSHEY_SIMPLEX, 0.55, CV_UTILS.scalar(255, 60, 60, 255), 2);
+                        if (cv.findChessboardCornersSB === undefined) {
+                            cv.putText(dst, "findChessboardCornersSB not in this opencv.js build", new cv.Point(15, 34), cv.FONT_HERSHEY_SIMPLEX, 0.7, CV_UTILS.scalar(255, 60, 60, 255), 2);
                         } else {
                             const cols = parseInt(document.getElementById('detCbCols').value);
                             const rows = parseInt(document.getElementById('detCbRows').value);
@@ -1291,8 +1287,8 @@
                             let corners = new cv.Mat();
                             try {
                                 const flags = (cv.CALIB_CB_ADAPTIVE_THRESH || 1) + (cv.CALIB_CB_NORMALIZE_IMAGE || 2);
-                                const found = cv.findChessboardCorners(gray, patternSize, corners, flags);
-                                if (found && typeof cv.drawChessboardCorners === 'function') {
+                                const found = cv.findChessboardCornersSB(gray, patternSize, corners, flags);
+                                if (found && cv.drawChessboardCorners !== undefined) {
                                     cv.drawChessboardCorners(dst, patternSize, corners, found);
                                 }
                                 nMarkers = found ? (cols - 1) * (rows - 1) : 0;
@@ -1302,15 +1298,12 @@
                         }
                     }
                 } catch (detErr) {
-                    const msg = detErr && detErr.message ? detErr.message
-                              : (typeof detErr === 'number' && cv.exceptionFromPtr ? cv.exceptionFromPtr(detErr).msg : String(detErr));
+                    const msg = detErr && detErr.message ? detErr.message : (typeof detErr === 'number' && cv.exceptionFromPtr ? cv.exceptionFromPtr(detErr).msg : String(detErr));
                     if (msg !== lastDetErr) { console.warn("Detector exception:", detErr); lastDetErr = msg; }
-                    cv.putText(dst, msg.slice(0, 60), new cv.Point(15, 30),
-                               cv.FONT_HERSHEY_SIMPLEX, 0.6, CV_UTILS.scalar(255, 60, 60, 255), 2);
+                    cv.putText(dst, msg.slice(0, 60), new cv.Point(15, 30), cv.FONT_HERSHEY_SIMPLEX, 0.6, CV_UTILS.scalar(255, 60, 60, 255), 2);
                 }
 
                 cv.imshow('canvasDetector', dst);
-
                 fpsN++;
                 const now = performance.now();
                 if (now - fpsT0 > 500) { fps = Math.round(fpsN * 1000 / (now - fpsT0)); fpsT0 = now; fpsN = 0; }
