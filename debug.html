@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OpenCV.js WASM Debugger</title>
+    <style>
+        body { font-family: monospace; background: #0f172a; color: #e2e8f0; padding: 20px; }
+        h2 { color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+        .success { color: #4ade80; font-weight: bold; }
+        .error { color: #f87171; font-weight: bold; }
+        .category { color: #fcd34d; font-weight: bold; margin-top: 20px; }
+        pre { background: #1e293b; padding: 15px; border-radius: 5px; border: 1px solid #334155; overflow-x: auto; }
+    </style>
+</head>
+<body>
+
+    <h2>OpenCV.js 5.x API Explorer</h2>
+    <div id="status" style="margin-bottom: 20px;">⏳ Loading opencv.js...</div>
+    <pre id="console"></pre>
+
+    <script>
+        const out = document.getElementById('console');
+        const status = document.getElementById('status');
+
+        function log(msg) {
+            out.innerHTML += msg + '\n';
+            console.log(msg);
+        }
+
+        async function runDebugger() {
+            try {
+                // Wait for OpenCV WASM to initialize
+                if (typeof cv === 'function') {
+                    window.cv = await cv();
+                } else if (typeof cv !== 'undefined' && cv instanceof Promise) {
+                    window.cv = await cv;
+                } else if (typeof cv !== 'undefined' && cv.ready instanceof Promise) {
+                    await cv.ready;
+                }
+
+                status.innerHTML = '<span class="success">✅ OpenCV WebAssembly Initialized!</span>';
+                
+                const keys = Object.keys(cv);
+                
+                // 1. Check Core Architecture
+                log("--- CORE VALIDATION ---");
+                log(`cv.Mat exists? ${!!cv.Mat}`);
+                log(`cv.aruco_ArucoDetector exists? ${!!cv.aruco_ArucoDetector}`);
+                log(`cv.findChessboardCornersSB exists? ${!!cv.findChessboardCornersSB}`);
+                
+                // 2. Fuzzy Search for ArUco / Dictionaries
+                const searchTerms = ['aruco', 'dict', 'marker', 'board', 'charuco'];
+                
+                searchTerms.forEach(term => {
+                    log(`\n<span class="category">--- Search: "${term}" ---</span>`);
+                    const matches = keys.filter(k => k.toLowerCase().includes(term));
+                    if (matches.length === 0) {
+                        log(`<span class="error">No matches found for '${term}'.</span>`);
+                    } else {
+                        matches.sort().forEach(m => {
+                            const type = typeof cv[m];
+                            log(`${m}: [${type}]`);
+                        });
+                    }
+                });
+
+                // 3. Look explicitly for the missing function
+                log(`\n<span class="category">--- Deep Search for 'getPredefinedDictionary' ---</span>`);
+                const exactMatches = keys.filter(k => k.toLowerCase().includes('getpredefineddictionary'));
+                if (exactMatches.length === 0) {
+                    log(`<span class="error">CRITICAL: The function getPredefinedDictionary was absolutely NOT compiled into the WASM file!</span>`);
+                } else {
+                    log(`<span class="success">FOUND IT! The compiler named it:</span>`);
+                    exactMatches.forEach(m => log(`-> cv.${m}`));
+                }
+
+            } catch (e) {
+                status.innerHTML = `<span class="error">❌ Initialization Failed</span>`;
+                log("ERROR: " + e.message);
+            }
+        }
+
+        // Inject script dynamically
+        let script = document.createElement('script');
+        // script.src = 'https://docs.opencv.org/4.x/opencv.js';
+        script.src = './opencv.js';
+        script.onload = () => {
+            log("JS wrapper parsed. Awaiting WASM instantiation...");
+            runDebugger();
+        };
+        script.onerror = () => {
+            status.innerHTML = `<span class="error">❌ Failed to load ./opencv.js</span>`;
+            log("Error: Could not find opencv.js. Are you running a local web server?");
+        };
+        document.head.appendChild(script);
+    </script>
+</body>
+</html>
