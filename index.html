@@ -279,7 +279,6 @@
                             <input type="number" id="detCbRows" value="6" class="w-full border-slate-300 rounded p-2 border outline-none">
                         </div>
                     </div>
-                    <p id="checkerUnsupported" class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 hidden"></p>
                 </div>
 
                 <div class="border-t border-slate-200 pt-3">
@@ -294,6 +293,7 @@
                     <p class="text-sm">Camera feed will appear here.<br>Allow camera access when prompted.</p>
                 </div>
                 <video id="videoInput" class="absolute w-0 h-0 opacity-0 pointer-events-none" autoplay playsinline muted></video>
+                <canvas id="hiddenVideoCanvas" class="hidden"></canvas>
                 <canvas id="canvasDetector" class="z-10 w-full h-full object-contain hidden"></canvas>
             </div>
         </div>
@@ -377,80 +377,40 @@
 
     <!-- JS LOGIC -->
     <script>
-        // --- DYNAMIC OPENCV LOADER (WASM / SIMD / THREADS FEATURE DETECTION) ---
-        window.__cvSettled = false;
-        window.Module = {
-            onRuntimeInitialized: function() {
-                console.log("✅ Emscripten Runtime Initialized!");
-                if (window.__cvTimeout) clearTimeout(window.__cvTimeout);
-                if (window.__cvSettled) return;
-                
-                window.__cvSettled = true;
-                onOpenCvReady();
-            },
-            printErr: function(text) {
-                console.error("🔴 OpenCV WASM Error:", text);
-            }
-        };
-
-        // 2. Download the JS wrapper
-        async function loadOpenCV(paths) {
-            let OPENCV_URL = paths["simd"] || paths["wasm"];
-            const statusText = document.getElementById('loadingText');
-            if (statusText) statusText.innerText = "Downloading OpenCV Engine...";
-
-            return new Promise((resolve, reject) => {
-                let script = document.createElement('script');
-                script.setAttribute('async', '');
-                script.setAttribute('type', 'text/javascript');
-                script.onload = () => {
-                    console.log("✅ opencv.js script downloaded.");
-                    if (statusText) statusText.innerText = "Initializing WASM Memory...";
-                    resolve();
-                };
-                script.onerror = () => reject(new Error("Failed to load opencv.js"));
-                script.src = OPENCV_URL;
-                document.head.appendChild(script);
-            });
+        // --- NATIVE WASM MEMORY HELPERS ---
+        function matToCanvas(mat, canvasId) {
+            const canvas = document.getElementById(canvasId);
+            canvas.width = mat.cols;
+            canvas.height = mat.rows;
+            const ctx = canvas.getContext('2d');
+            const destMat = new cv.Mat();
+            if (mat.channels() === 1) cv.cvtColor(mat, destMat, cv.COLOR_GRAY2RGBA);
+            else if (mat.channels() === 3) cv.cvtColor(mat, destMat, cv.COLOR_RGB2RGBA);
+            else mat.copyTo(destMat);
+            const imgData = new ImageData(new Uint8ClampedArray(destMat.data), destMat.cols, destMat.rows);
+            ctx.putImageData(imgData, 0, 0);
+            destMat.delete();
         }
 
-        // 3. App Initialization
-        (async function initApp() {
-            try {
-                // Safety net: Timeout after 15 seconds if WASM fails to unpack
-                window.__cvTimeout = setTimeout(() => {
-                    console.error("⏳ WASM Timeout! Current state of cv object:", window.cv);
-                    onOpenCvFailed("WASM initialization timed out. Check browser console for 404 or MIME type errors.");
-                }, 15000);
+        // --- DYNAMIC OPENCV LOADER ---
+        window.__cvSettled = false;
+        
+        let script = document.createElement('script');
+        script.src = './opencv4.13.js'; // YOUR WORKING COMPILED FILE
+        script.onload = async () => {
+            const statusText = document.getElementById('loadingText');
+            if (statusText) statusText.innerText = "Initializing WASM Memory...";
+            
+            if (typeof cv === 'function') window.cv = await cv();
+            else if (typeof cv !== 'undefined' && cv instanceof Promise) window.cv = await cv;
+            else if (typeof cv !== 'undefined' && cv.ready instanceof Promise) await cv.ready;
 
-                await loadOpenCV({ 
-                    simd: "./opencv4.13.js", 
-                    wasm: "./opencv4.13.js" 
-                });
-                
-                // If Emscripten built it as a Promise, await it
-                if (typeof cv === 'function') {
-                    window.cv = await cv();
-                } else if (typeof cv !== 'undefined' && cv instanceof Promise) {
-                    window.cv = await cv;
-                } else if (typeof cv !== 'undefined' && cv.ready instanceof Promise) {
-                    await cv.ready;
-                }
-
-                // If cv.Mat exists now, force the ready state
-                if (typeof cv !== 'undefined' && cv.Mat && !window.__cvSettled) {
-                    console.log("✅ cv.Mat detected via Promise resolution.");
-                    if (window.__cvTimeout) clearTimeout(window.__cvTimeout);
-                    window.__cvSettled = true;
-                    onOpenCvReady();
-                }
-
-            } catch (e) {
-                if (window.__cvTimeout) clearTimeout(window.__cvTimeout);
-                onOpenCvFailed(e.message);
+            if (typeof cv !== 'undefined' && cv.Mat && !window.__cvSettled) {
+                window.__cvSettled = true;
+                onOpenCvReady();
             }
-        })();
-
+        };
+        document.head.appendChild(script);
 
         // --- GLOBAL SETTINGS LOGIC ---
         function getGlobalDPI() { return parseInt(localStorage.getItem('cv_calib_dpi')) || 300; }
@@ -639,7 +599,7 @@
         // --- OPENCV ENGINE GLOBALS ---
         let cvReady = false;
         let isStreaming = false;
-        let video, cap, src, dst, gray;
+        let video, src, dst, gray;
         let streamingAnimFrame;
         let currentMatW = 0, currentMatH = 0;
         let videoDevices = [];
@@ -685,14 +645,16 @@
                 let raw = cv[dictName] !== undefined ? cv[dictName] : fallbackMap[dictName];
                 const dictId = (raw && typeof raw === 'object' && 'value' in raw) ? raw.value : raw;
                 if (dictId === undefined) throw new Error("Unknown dictionary " + dictName);
-                const f = this.fn('getPredefinedDictionary', 'aruco_getPredefinedDictionary');
+                
+                let f = cv.getPredefinedDictionary || cv.aruco_getPredefinedDictionary;
+                if (!f && cv.aruco) f = cv.aruco.getPredefinedDictionary;
                 if (!f) throw new Error("Unable to map Dictionary API.");
                 return f(dictId);
             },
             drawMarker: function (dict, id, size, img) {
-                const f = this.fn('generateImageMarker', 'aruco_generateImageMarker');
+                let f = cv.generateImageMarker || cv.aruco_generateImageMarker;
+                if (!f && cv.aruco) f = cv.aruco.generateImageMarker;
                 if (f) return f(dict, id, size, img, 1);
-                if (typeof dict.generateImageMarker === 'function') return dict.generateImageMarker(id, size, img, 1);
                 throw new Error("Unable to map Image Marker API.");
             },
             newDetectorParameters: function () {
@@ -707,7 +669,7 @@
             },
             newArucoDetector: function (dict, params, refine) {
                 const K = this.klass('aruco_ArucoDetector', 'ArucoDetector');
-                if (!K) throw new Error("ArucoDetector missing - this opencv.js was built without the objdetect aruco whitelist.");
+                if (!K) throw new Error("ArucoDetector missing from this build.");
                 if (refine) { try { return new K(dict, params, refine); } catch (e) { /* fall through */ } }
                 return new K(dict, params);
             },
@@ -747,13 +709,15 @@
                 throw new Error("Unable to map ChArUco rendering API.");
             },
             drawDetectedMarkers: function (img, corners, ids, color) {
-                const f = this.fn('drawDetectedMarkers', 'aruco_drawDetectedMarkers');
+                let f = cv.drawDetectedMarkers || cv.aruco_drawDetectedMarkers;
+                if (!f && cv.aruco) f = cv.aruco.drawDetectedMarkers;
                 if (!f) return;
                 const c = color || this.scalar(0, 255, 0, 255);
                 try { f(img, corners, ids, c); } catch (e) { f(img, corners, ids); }
             },
             drawDetectedCornersCharuco: function (img, corners, ids, color) {
-                const f = this.fn('drawDetectedCornersCharuco', 'aruco_drawDetectedCornersCharuco');
+                let f = cv.drawDetectedCornersCharuco || cv.aruco_drawDetectedCornersCharuco;
+                if (!f && cv.aruco) f = cv.aruco.drawDetectedCornersCharuco;
                 if (!f) return;
                 const c = color || this.scalar(255, 0, 0, 255);
                 try { f(img, corners, ids, c); } catch (e) { f(img, corners, ids); }
@@ -825,12 +789,6 @@
         function invalidateDetector() { if (cvReady) Detector.disposeAll(); }
 
         // --- INIT ---
-        function onOpenCvFailed(msg) {
-            const el = document.getElementById('loadingStatus');
-            el.className = "flex items-center bg-red-50 px-4 py-2 rounded-lg border border-red-200 shadow-sm w-full md:w-auto";
-            el.innerHTML = `<span class="font-medium text-sm text-red-700">${msg}</span>`;
-        }
-
         function onOpenCvReady() {
             cvReady = true;
             const missing = CV_UTILS.missingSymbols();
@@ -855,12 +813,6 @@
                     sel.appendChild(opt);
                 });
             });
-
-            if (cv.findChessboardCornersSB === undefined) {
-                const w = document.getElementById('checkerUnsupported');
-                w.classList.remove('hidden');
-                w.innerHTML = "<strong>Not available in this build.</strong> The official opencv.js whitelist ships calib3d without <code>findChessboardCornersSB</code>.";
-            }
 
             drawCheckerboard(); drawAruco(); drawCharuco();
             video = document.getElementById('videoInput');
@@ -920,7 +872,7 @@
                 const sizePx = Math.round(getPx(document.getElementById('arSize').value, unit));
 
                 CV_UTILS.drawMarker(dictionary, id, sizePx, markerImage);
-                cv.imshow('canvasAruco', markerImage);
+                matToCanvas(markerImage, 'canvasAruco');
             } catch (err) {
                 console.error(err); drawErrorOnCanvas('canvasAruco', err.message);
             } finally {
@@ -947,7 +899,7 @@
                 boardImage = new cv.Mat();
                 let renderSize = new cv.Size(Math.round(cols * sqSzPx), Math.round(rows * sqSzPx));
                 CV_UTILS.drawCharucoBoard(board, renderSize, boardImage);
-                cv.imshow('canvasCharuco', boardImage);
+                matToCanvas(boardImage, 'canvasCharuco');
             } catch (err) {
                 console.error(err); drawErrorOnCanvas('canvasCharuco', err.message);
             } finally {
@@ -1026,7 +978,7 @@
             if (src) { src.delete(); src = null; }
             if (dst) { dst.delete(); dst = null; }
             if (gray) { gray.delete(); gray = null; }
-            cap = null; Detector.disposeAll(); currentMatW = 0; currentMatH = 0;
+            Detector.disposeAll(); currentMatW = 0; currentMatH = 0;
 
             const btn = document.getElementById('btnToggleCamera');
             btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> Start Camera`;
@@ -1078,9 +1030,12 @@
                 const vw = video.videoWidth, vh = video.videoHeight;
                 if (vw === 0 || vh === 0) { streamingAnimFrame = requestAnimationFrame(processVideo); return; }
 
+                const hiddenCanvas = document.getElementById('hiddenVideoCanvas');
+
                 if (currentMatW !== vw || currentMatH !== vh) {
                     currentMatW = vw; currentMatH = vh;
                     video.width = vw; video.height = vh;
+                    hiddenCanvas.width = vw; hiddenCanvas.height = vh;
 
                     const canvas = document.getElementById('canvasDetector');
                     canvas.width = vw; canvas.height = vh;
@@ -1093,10 +1048,13 @@
                     src  = new cv.Mat(vh, vw, cv.CV_8UC4);
                     dst  = new cv.Mat(vh, vw, cv.CV_8UC3);
                     gray = new cv.Mat(vh, vw, cv.CV_8UC1);
-                    cap = new cv.VideoCapture(video);
                 }
 
-                cap.read(src);
+                const ctx = hiddenCanvas.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(video, 0, 0, vw, vh);
+                const imgData = ctx.getImageData(0, 0, vw, vh);
+                src.data.set(imgData.data);
+
                 cv.cvtColor(src, dst,  cv.COLOR_RGBA2RGB);
                 cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
@@ -1221,23 +1179,23 @@
                         lastDetErr = "";
 
                     } else if (mode === 'checkerboard') {
-                        if (cv.findChessboardCornersSB === undefined) {
-                            cv.putText(dst, "findChessboardCornersSB not in this opencv.js build", new cv.Point(15, 34), cv.FONT_HERSHEY_SIMPLEX, 0.7, CV_UTILS.scalar(255, 60, 60, 255), 2);
-                        } else {
-                            const cols = parseInt(document.getElementById('detCbCols').value);
-                            const rows = parseInt(document.getElementById('detCbRows').value);
-                            const patternSize = new cv.Size(cols - 1, rows - 1);
-                            let corners = new cv.Mat();
-                            try {
-                                const flags = (cv.CALIB_CB_ADAPTIVE_THRESH || 1) + (cv.CALIB_CB_NORMALIZE_IMAGE || 2);
-                                const found = cv.findChessboardCornersSB(gray, patternSize, corners, flags);
-                                if (found && cv.drawChessboardCorners !== undefined) {
+                        const cols = parseInt(document.getElementById('detCbCols').value);
+                        const rows = parseInt(document.getElementById('detCbRows').value);
+                        const patternSize = new cv.Size(cols - 1, rows - 1);
+                        let corners = new cv.Mat();
+                        try {
+                            const flags = (cv.CALIB_CB_ADAPTIVE_THRESH || 1) + (cv.CALIB_CB_NORMALIZE_IMAGE || 2);
+                            const found = cv.findChessboardCorners(gray, patternSize, corners, flags);
+                            if (found) {
+                                const criteria = new cv.TermCriteria(cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.1);
+                                cv.cornerSubPix(gray, corners, new cv.Size(5, 5), new cv.Size(-1, -1), criteria);
+                                if (cv.drawChessboardCorners !== undefined) {
                                     cv.drawChessboardCorners(dst, patternSize, corners, found);
                                 }
-                                nMarkers = found ? (cols - 1) * (rows - 1) : 0;
-                            } finally {
-                                corners.delete();
                             }
+                            nMarkers = found ? (cols - 1) * (rows - 1) : 0;
+                        } finally {
+                            corners.delete();
                         }
                     }
                 } catch (detErr) {
@@ -1246,7 +1204,8 @@
                     cv.putText(dst, msg.slice(0, 60), new cv.Point(15, 30), cv.FONT_HERSHEY_SIMPLEX, 0.6, CV_UTILS.scalar(255, 60, 60, 255), 2);
                 }
 
-                cv.imshow('canvasDetector', dst);
+                matToCanvas(dst, 'canvasDetector');
+                
                 fpsN++;
                 const now = performance.now();
                 if (now - fpsT0 > 500) { fps = Math.round(fpsN * 1000 / (now - fpsT0)); fpsT0 = now; fpsN = 0; }
