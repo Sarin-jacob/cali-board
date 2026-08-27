@@ -1186,6 +1186,8 @@
                         try {
                             const flags = (cv.CALIB_CB_ADAPTIVE_THRESH || 1) + (cv.CALIB_CB_NORMALIZE_IMAGE || 2);
                             const found = cv.findChessboardCorners(gray, patternSize, corners, flags);
+                            // const flags = cv.CALIB_CB_EXHAUSTIVE | cv.CALIB_CB_ACCURACY | cv.CALIB_CB_NORMALIZE_IMAGE;
+                            // const found = cv.findChessboardCornersSB(gray, patternSize, corners, flags);
                             if (found) {
                                 const criteria = new cv.TermCriteria(cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.1);
                                 cv.cornerSubPix(gray, corners, new cv.Size(5, 5), new cv.Size(-1, -1), criteria);
