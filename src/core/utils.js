@@ -83,3 +83,13 @@ export const CV_UTILS = {
     try { f(img, corners, ids, c); } catch (e) { f(img, corners, ids); }
   }
 };
+
+export function getGlobalDPI() { return parseInt(localStorage.getItem('cv_calib_dpi')) || 300; }
+export function getPx(val, unit) {
+    val = parseFloat(val);
+    const dpi = getGlobalDPI();
+    if (unit === 'in') return val * dpi;
+    if (unit === 'cm') return (val / 2.54) * dpi;
+    if (unit === 'mm') return (val / 25.4) * dpi;
+    return val;
+}
