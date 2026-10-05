@@ -102,6 +102,63 @@ await test('Pose estimation recovers the rendered pose', async () => {
   console.log(`    pose: translation error ${dt.toFixed(3)} mm at ${pose.tvec[2].toFixed(0)} mm, reprojection ${est.rms.toFixed(3)} px`);
 });
 
+await test('Checkerboard corner order is canonical even when the board is upside down', async () => {
+  const target = normalizeTarget(defaultTarget('checkerboard'));
+  const layout = await layoutTarget(target);
+  const cam = new SyntheticCamera({ calib: PINHOLE, target, layout, texScale: 8, supersample: 2 });
+  const [pose] = randomPoses(1, { calib: PINHOLE, target, layout, seed: 21, project: projectPoint, corners: boardCornersObject(target, layout), maxTilt: 0.3 });
+  const obj = objectPoints(target);
+  for (const roll of [0, Math.PI]) {
+    // Rotate the board 180° in its own plane about its centre.
+    const c = [((target.cols - 2) * target.squareSize) / 2, ((target.rows - 2) * target.squareSize) / 2];
+    const R0 = pose.R, cr = Math.cos(roll), sr = Math.sin(roll);
+    const Rz = [cr, -sr, 0, sr, cr, 0, 0, 0, 1];
+    const R = [0, 1, 2].flatMap((r) => [0, 1, 2].map((k) => R0[3 * r] * Rz[k] + R0[3 * r + 1] * Rz[3 + k] + R0[3 * r + 2] * Rz[6 + k]));
+    const shift = [c[0] - (cr * c[0] - sr * c[1]), c[1] - (sr * c[0] + cr * c[1]), 0];
+    const tvec = [0, 1, 2].map((r) => pose.tvec[r] + R0[3 * r] * shift[0] + R0[3 * r + 1] * shift[1]);
+    const gray = cv.matFromArray(H, W, cv.CV_8UC1, cam.render({ R, tvec }, { noise: 1 }));
+    const res = core.detect(gray, detectorSpec(target), { mode: 'accurate' });
+    gray.delete();
+    assert.ok(res.found, `not found at roll ${roll}`);
+    // Corner 0 must be the one next to the board's black corner square, wherever it lands in the image.
+    const gt = cam.groundTruth({ R, tvec }, obj, projectPoint);
+    const err = Math.hypot(res.points[0] - gt[0], res.points[1] - gt[1]);
+    assert.ok(err < 1, `roll ${roll}: corner 0 is ${err.toFixed(1)} px from its true position`);
+  }
+});
+
+await test('Stereo calibration recovers a known baseline', async () => {
+  const { virtualRig } = await import('../src/calib/stereo.js');
+  const { pairDetections } = await import('../src/calib/stereo.js');
+  const target = normalizeTarget(defaultTarget('charuco'));
+  const layout = await layoutTarget(target);
+  const cam = new SyntheticCamera({ calib: PINHOLE, target, layout, texScale: 8, supersample: 2 });
+  const rig = virtualRig(80, 4);
+  const poses = randomPoses(10, { calib: PINHOLE, target, layout, seed: 31, project: projectPoint, corners: boardCornersObject(target, layout), margin: 0.15 });
+  const views = [];
+  for (const [i, p] of poses.entries()) {
+    const R2 = [0, 1, 2].flatMap((r) => [0, 1, 2].map((k) => rig.R[3 * r] * p.R[k] + rig.R[3 * r + 1] * p.R[3 + k] + rig.R[3 * r + 2] * p.R[6 + k]));
+    const t2 = [0, 1, 2].map((r) => rig.R[3 * r] * p.tvec[0] + rig.R[3 * r + 1] * p.tvec[1] + rig.R[3 * r + 2] * p.tvec[2] + rig.t[r]);
+    const dets = [];
+    for (const pose of [p, { R: R2, tvec: t2 }]) {
+      const gray = cv.matFromArray(H, W, cv.CV_8UC1, cam.render(pose, { noise: 1.5, seed: i }));
+      dets.push(core.detect(gray, detectorSpec(target), { mode: 'accurate' }));
+      gray.delete();
+    }
+    const pair = pairDetections(target, dets[0], dets[1]);
+    if (pair && pair.count >= 6) views.push({ obj: pair.obj, img1: pair.img1, img2: pair.img2 });
+  }
+  assert.ok(views.length >= 8, `only ${views.length} usable pairs`);
+  const out = core.stereoCalibrate({ views, imageSize: { width: W, height: H }, calib1: PINHOLE, calib2: PINHOLE });
+  const baseline = Math.hypot(...out.T);
+  const dT = Math.hypot(out.T[0] - rig.t[0], out.T[1] - rig.t[1], out.T[2] - rig.t[2]);
+  console.log(`    stereo: ${views.length} pairs, baseline ${baseline.toFixed(2)} mm (truth 80), |ΔT| ${dT.toFixed(2)} mm, rms ${out.rms.toFixed(3)} px`);
+  assert.ok(dT < 1.0, `translation off by ${dT.toFixed(2)} mm`);
+  const rect = core.stereoRectify({ calib1: PINHOLE, calib2: PINHOLE, R: out.R, T: out.T, alpha: 0, imageSize: { width: W, height: H } });
+  assert.equal(rect.P2.length, 12);
+  assert.ok(Math.abs(rect.P2[3]) > 1000, 'P2 carries the baseline term');
+});
+
 await test('Invalid input is rejected before reaching OpenCV', async () => {
   assert.throws(() => core.calibrate({ views: [], imageSize: { width: W, height: H } }), /at least 3 views/);
   const flat = { obj: new Float32Array([0, 0, 0, 1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0]), img: new Float32Array([1, 1, 2, 2, 3, 3, 4, 4, 5, 5]) };

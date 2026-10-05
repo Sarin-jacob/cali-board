@@ -20,7 +20,11 @@ export function mountPoses3D(canvas, result, target) {
   });
   const dists = boards.map((b) => Math.hypot(...b.center)).sort((a, b) => a - b);
   const scale = dists[dists.length >> 1] || 500;
-  const centroid = boards.reduce((a, b) => [a[0] + b.center[0] / boards.length, a[1] + b.center[1] / boards.length, a[2] + b.center[2] / boards.length], [0, 0, 0]).map((v) => v / 2);
+  // Frame the scene: bounding sphere of the camera (origin) and every board corner.
+  const all = [[0, 0, 0], ...boards.flatMap((b) => b.corners)];
+  const lo = [0, 1, 2].map((k) => Math.min(...all.map((p) => p[k]))), hi = [0, 1, 2].map((k) => Math.max(...all.map((p) => p[k])));
+  const centroid = lo.map((v, k) => (v + hi[k]) / 2);
+  const radius = Math.max(1, Math.max(...all.map((p) => Math.hypot(p[0] - centroid[0], p[1] - centroid[1], p[2] - centroid[2]))));
   const med = [...result.views.map((v) => v.rms)].sort((a, b) => a - b)[result.views.length >> 1] || result.rms;
 
   // Camera frustum at depth ~0.35·median distance.
@@ -40,8 +44,10 @@ export function mountPoses3D(canvas, result, target) {
     const dark = matchMedia('(prefers-color-scheme: dark)').matches;
     // OpenCV camera frame is y-down; flip so "up" is up on screen.
     const V = mul(rotX(pitch), rotY(yaw));
-    const dist = scale * 2.6 / zoom;
-    const f = Math.min(cw, ch) * 1.1;
+    // Viewing distance / focal so the bounding sphere fills ~80 % of the shorter side at zoom 1
+    // (a mild perspective keeps near objects from blowing up).
+    const dist = (radius * 3.5) / zoom;
+    const f = Math.min(cw, ch) * 1.4;
     const proj = (p) => {
       const q = apply(V, [p[0] - centroid[0], -(p[1] - centroid[1]), p[2] - centroid[2]]);
       const z = q[2] + dist;

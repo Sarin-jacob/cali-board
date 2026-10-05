@@ -28,11 +28,23 @@ export const LENSES = {
 };
 
 export class VirtualCamera {
-  constructor(lensId, target, { seed = 1 } = {}) {
+  /**
+   * @param {string} lensId   key of LENSES
+   * @param {object} target   calibration target to film
+   * @param {object} [o]
+   * @param {number} [o.seed]       board trajectory seed (share it between the cameras of a rig)
+   * @param {object} [o.extrinsic]  { R, t } from camera 1 to this camera (stereo rigs)
+   * @param {boolean} [o.stereo]    part of a stereo rig (keeps the board away from the edges)
+   * @param {number} [o.t0]         shared clock origin (performance.now()) for synchronised rigs
+   */
+  constructor(lensId, target, { seed = 1, extrinsic = null, stereo = false, t0 = null } = {}) {
     this.lens = LENSES[lensId] || LENSES.webcam;
     this.lensId = lensId in LENSES ? lensId : 'webcam';
     this.target = target;
     this.seed = seed;
+    this.extrinsic = extrinsic;
+    this.stereo = stereo;
+    this.sharedT0 = t0;
     this.worker = null;
     this.stream = null;
     this.running = false;
@@ -46,7 +58,7 @@ export class VirtualCamera {
     await new Promise((resolve, reject) => {
       this.worker.onmessage = (e) => (e.data.type === 'ready' ? resolve() : e.data.type === 'error' ? reject(new Error(e.data.error)) : null);
       this.worker.onerror = (e) => reject(new Error(e.message || 'Virtual camera failed to start'));
-      this.worker.postMessage({ type: 'init', calib: this.lens.calib, target: this.target, seed: this.seed, count: 30 });
+      this.worker.postMessage({ type: 'init', calib: this.lens.calib, target: this.target, seed: this.seed, count: 30, extrinsic: this.extrinsic, options: { stereo: this.stereo } });
     });
     this.canvas = document.createElement('canvas');
     this.canvas.width = W; this.canvas.height = H;
@@ -54,7 +66,7 @@ export class VirtualCamera {
     this.ctx.fillStyle = '#222'; this.ctx.fillRect(0, 0, W, H);
     this.stream = this.canvas.captureStream();
     this.running = true;
-    this.t0 = performance.now();
+    this.t0 = this.sharedT0 ?? performance.now();
     this.worker.onmessage = (e) => {
       if (e.data.type !== 'frame' || !this.running) { e.data.bitmap?.close?.(); return; }
       this.ctx.drawImage(e.data.bitmap, 0, 0);

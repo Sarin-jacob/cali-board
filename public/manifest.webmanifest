@@ -1,0 +1,17 @@
+{
+  "name": "CaliBoard — camera calibration",
+  "short_name": "CaliBoard",
+  "description": "Serverless camera calibration in your browser: targets, pinhole & fisheye intrinsics, stereo, validation and exports. Everything stays on your device.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#4f46e5",
+  "categories": ["utilities", "productivity", "photo"],
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

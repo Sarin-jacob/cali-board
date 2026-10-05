@@ -57,7 +57,7 @@ export async function editTargetDialog(target, unit = 'mm') {
       </div>
     </form>`, {
     title: 'Calibration target',
-    onMount(dlg) {
+    onMount(dlg, finish) {
       const form = $('form', dlg), box = $('[data-fields]', dlg), msg = $('[data-msg]', dlg);
       const draw = () => render(box, html`${fieldsHtml(t, unit)}`);
       const check = () => {
@@ -76,7 +76,7 @@ export async function editTargetDialog(target, unit = 'mm') {
         check();
       });
       on(form, 'change', '[data-f]', (e, input) => input.dispatchEvent(new Event('input', { bubbles: true })));
-      form.addEventListener('submit', (e) => { e.preventDefault(); if (check()) { result = t; dlg.close('ok'); } });
+      form.addEventListener('submit', (e) => { e.preventDefault(); if (check()) { result = t; finish('ok'); } });
     },
   });
   return result;

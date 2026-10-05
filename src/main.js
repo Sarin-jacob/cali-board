@@ -112,5 +112,9 @@ idle(() => {
 
 // Offline support (production builds only — the dev server must always serve fresh files).
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadController) toast('CaliBoard was updated — reload the page to use the new version.', { type: 'info', timeout: 10000 });
+  });
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }

@@ -1,14 +1,14 @@
 import { html, render, $, $$, on, toast, announce, confirmDialog, openDialog, prefs, fmt, debounce } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { vision, grabFrame } from '../engine/vision.js';
+import { vision, grabFrame, nextVideoFrame } from '../engine/vision.js';
 import { app, setTarget, emit } from '../app/state.js';
 import { describeTarget, detectorSpec, objectPoints, typeInfo, validateTarget, maxPoints } from '../targets/targets.js';
 import { createSession, addView, enabledViews, loadSession, saveSession, discardSession, saveLastResult } from '../calib/session.js';
 import { viewParams, novelty, coverageProgress, weakest, coverageGrid, coverageFraction, outerQuad, motionBetween } from '../calib/coverage.js';
-import { calibrateSession, MODELS, ADVANCED_MODELS, modelInfo } from '../calib/run.js';
+import { calibrateSession, MODELS, ADVANCED_MODELS } from '../calib/run.js';
 import { RESOLUTIONS, listCameras, openCamera, stopStream, setTorch, lockFocus, cameraErrorMessage, videoReady, cameraSupported } from '../sources/camera.js';
 import { VirtualCamera, LENSES } from '../sources/virtual.js';
-import { prepareOverlay, drawDetection, drawGhosts, drawCoverage, drawResiduals } from '../ui/overlay.js';
+import { prepareOverlay, drawDetection, drawGhosts, drawCoverage } from '../ui/overlay.js';
 import { editTargetDialog } from '../ui/target-form.js';
 
 const LIVE_MAX_SIDE = 960;   // live detection runs on a downscaled frame
@@ -20,14 +20,6 @@ const RECOMMENDED_VIEWS = 20;
 let S = null;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
-/** Resolves on the next *new* video frame (avoids re-analysing duplicates), else next paint. */
-const nextVideoFrame = (video) => new Promise((r) => {
-  if (video.requestVideoFrameCallback) {
-    const t = setTimeout(r, 250); // never stall if the stream freezes
-    video.requestVideoFrameCallback(() => { clearTimeout(t); r(); });
-  } else requestAnimationFrame(() => r());
-});
 
 function defaults() {
   return {
@@ -69,8 +61,32 @@ export default {
         </div>
       </div>
 
-      <div class="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_23rem]">
-        <section class="min-w-0 space-y-4" aria-label="Capture">
+      <div class="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_23rem] xl:grid-rows-[auto_1fr]">
+        <aside class="space-y-4 xl:col-start-2 xl:row-start-1" aria-label="Target and image source">
+          <section class="card card-pad" aria-labelledby="t-h">
+            <div class="flex items-center justify-between gap-2">
+              <h2 id="t-h" class="section-title">1 · Target</h2>
+              <div class="flex gap-1">
+                <button type="button" class="btn btn-ghost btn-sm" data-edit-target>${icon('edit')} Change</button>
+                <a class="btn btn-ghost btn-sm" href="#/targets">${icon('printer')} Print</a>
+              </div>
+            </div>
+            <p class="mt-2 text-sm" id="target-desc"></p>
+          </section>
+
+          <section class="card card-pad" aria-labelledby="s-h">
+            <h2 id="s-h" class="section-title">2 · Images</h2>
+            <div class="seg mt-3 w-full" role="tablist" aria-label="Image source">
+              ${[['camera', 'Camera'], ['photos', 'Photos'], ['virtual', 'Virtual']].map(([id, label]) => html`
+                <button type="button" role="tab" class="flex-1" id="tab-${id}" aria-controls="panel-${id}" aria-selected="${S.prefs.sourceTab === id}" data-tab="${id}">${label}</button>`)}
+            </div>
+            <div class="mt-4" id="panel-camera" role="tabpanel" aria-labelledby="tab-camera" ${S.prefs.sourceTab !== 'camera' ? 'hidden' : ''}></div>
+            <div class="mt-4" id="panel-photos" role="tabpanel" aria-labelledby="tab-photos" ${S.prefs.sourceTab !== 'photos' ? 'hidden' : ''}></div>
+            <div class="mt-4" id="panel-virtual" role="tabpanel" aria-labelledby="tab-virtual" ${S.prefs.sourceTab !== 'virtual' ? 'hidden' : ''}></div>
+          </section>
+        </aside>
+
+        <section class="min-w-0 space-y-4 xl:col-start-1 xl:row-span-2 xl:row-start-1" aria-label="Capture">
           <div class="stage" id="stage" style="aspect-ratio: 16 / 9">
             <video id="video" muted playsinline autoplay aria-hidden="true"></video>
             <canvas id="overlay" class="overlay" aria-hidden="true"></canvas>
@@ -78,7 +94,7 @@ export default {
               <div class="max-w-sm">
                 <span class="mx-auto grid size-12 place-items-center rounded-full bg-slate-800">${icon('camera', 'size-6')}</span>
                 <p class="mt-3 font-semibold text-white">No live source</p>
-                <p class="mt-1 text-sm text-slate-400">Start a camera or the virtual camera on the right — or upload photos you already took.</p>
+                <p class="mt-1 text-sm text-slate-400">Choose a camera, the virtual camera or your photos under “2 · Images”.</p>
               </div>
             </div>
             <div class="pointer-events-none absolute left-3 top-3 right-3 flex flex-wrap items-start justify-between gap-2">
@@ -111,30 +127,8 @@ export default {
           </div>
         </section>
 
-        <aside class="space-y-4" aria-label="Settings">
-          <section class="card card-pad" aria-labelledby="t-h">
-            <div class="flex items-center justify-between gap-2">
-              <h2 id="t-h" class="section-title">1 · Target</h2>
-              <div class="flex gap-1">
-                <button type="button" class="btn btn-ghost btn-sm" data-edit-target>${icon('edit')} Change</button>
-                <a class="btn btn-ghost btn-sm" href="#/targets">${icon('printer')} Print</a>
-              </div>
-            </div>
-            <p class="mt-2 text-sm" id="target-desc"></p>
-          </section>
 
-          <section class="card card-pad" aria-labelledby="s-h">
-            <h2 id="s-h" class="section-title">2 · Images</h2>
-            <div class="seg mt-3 w-full" role="tablist" aria-label="Image source">
-              ${[['camera', 'Camera'], ['photos', 'Photos'], ['virtual', 'Virtual']].map(([id, label]) => html`
-                <button type="button" role="tab" class="flex-1" id="tab-${id}" aria-controls="panel-${id}" aria-selected="${S.prefs.sourceTab === id}" data-tab="${id}">${label}</button>`)}
-            </div>
-            <div class="mt-4" id="panel-camera" role="tabpanel" aria-labelledby="tab-camera" ${S.prefs.sourceTab !== 'camera' ? 'hidden' : ''}></div>
-            <div class="mt-4" id="panel-photos" role="tabpanel" aria-labelledby="tab-photos" ${S.prefs.sourceTab !== 'photos' ? 'hidden' : ''}></div>
-            <div class="mt-4" id="panel-virtual" role="tabpanel" aria-labelledby="tab-virtual" ${S.prefs.sourceTab !== 'virtual' ? 'hidden' : ''}></div>
-          </section>
-
-          <section class="card card-pad" aria-labelledby="c-h">
+        <section class="card card-pad xl:col-start-2 xl:row-start-2 xl:self-start" aria-labelledby="c-h">
             <h2 id="c-h" class="section-title">3 · Calibrate</h2>
             <fieldset class="group mt-3">
               <legend class="sr-only">Lens model</legend>
@@ -151,8 +145,7 @@ export default {
             </details>
             <button type="button" class="btn btn-success btn-lg mt-4 w-full" data-run disabled>${icon('sparkles')} Calibrate</button>
             <p class="mt-2 text-sm muted" id="run-status" role="status"></p>
-          </section>
-        </aside>
+        </section>
       </div>`);
 
     renderTarget();
@@ -269,7 +262,7 @@ function renderViews() {
           <span class="truncate" title="${v.name || ''}"><strong>#${v.n}</strong> · ${v.count} pts ${blurry ? html`<span class="pill pill-warn ml-1" title="Much less sharp than the other views">blurry?</span>` : ''}</span>
           <span class="flex shrink-0 gap-0.5">
             <button type="button" class="btn btn-ghost btn-sm min-h-7 px-1.5" data-toggle="${v.id}" aria-pressed="${v.enabled}" aria-label="${v.enabled ? 'Exclude' : 'Include'} view ${v.n}" title="${v.enabled ? 'Exclude from calibration' : 'Include in calibration'}">${icon(v.enabled ? 'eye' : 'eyeOff')}</button>
-            <button type="button" class="btn btn-ghost btn-sm min-h-7 px-1.5 text-rose-600" data-delete="${v.id}" aria-label="Delete view ${v.n}" title="Delete">${icon('trash')}</button>
+            <button type="button" class="btn btn-ghost btn-sm min-h-7 px-1.5 text-rose-700 dark:text-rose-400" data-delete="${v.id}" aria-label="Delete view ${v.n}" title="Delete">${icon('trash')}</button>
           </span>
         </div>
       </li>`;
@@ -631,12 +624,12 @@ function onDetection(det, now, fps) {
 const HUD = {
   engine: ['Loading vision engine…', 'bg-slate-950/75'],
   search: ['Looking for the target…', 'bg-slate-950/75'],
-  few: ['Too little of the target is visible', 'bg-amber-600/90'],
+  few: ['Too little of the target is visible', 'bg-amber-700/90'],
   seen: ['Already covered — move to a new position', 'bg-slate-950/75'],
   moving: ['Hold still…', 'bg-indigo-600/90'],
-  ready: ['Hold still — capturing', 'bg-emerald-600/90'],
+  ready: ['Hold still — capturing', 'bg-emerald-700/90'],
   size: ['Resolution differs from this session', 'bg-rose-600/90'],
-  capturing: ['Capturing…', 'bg-emerald-600/90'],
+  capturing: ['Capturing…', 'bg-emerald-700/90'],
 };
 
 function setHud(status, det, fps) {
@@ -782,6 +775,7 @@ function inspectView(id) {
     </div>`, {
     title: `View #${v.n}`,
     wide: true,
+    onClose: () => url && URL.revokeObjectURL(url),
     onMount(dlg) {
       const canvas = $('canvas', dlg);
       const draw = () => {
@@ -792,7 +786,6 @@ function inspectView(id) {
         }
       };
       requestAnimationFrame(draw);
-      dlg.addEventListener('close', () => url && URL.revokeObjectURL(url));
     },
   });
 }

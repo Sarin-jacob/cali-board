@@ -33,7 +33,7 @@
   .btn-secondary { @apply border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 active:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700; }
   .btn-ghost { @apply text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800; }
   .btn-danger { @apply border border-rose-300 bg-white text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:bg-slate-900 dark:text-rose-300 dark:hover:bg-rose-950; }
-  .btn-success { @apply bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400; }
+  .btn-success { @apply bg-emerald-700 text-white hover:bg-emerald-800 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400; }
   .btn svg { @apply size-4 shrink-0; }
   .btn-lg svg { @apply size-5; }
 

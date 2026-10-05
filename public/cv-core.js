@@ -321,6 +321,10 @@
         if (method === 'classic' || scale !== 1) pts = refinePoints(gray, pts, w);
       } else {
         pts = upscalePoints(pts, scale);
+        if (opts.refine) {
+          const ids = Int32Array.from({ length: c * r }, (_, i) => i);
+          pts = refinePoints(gray, pts, clamp(Math.floor(gridSpacing(pts, ids, c) * 0.3), 2, 15));
+        }
       }
       pts = canonicalizeCheckerboard(gray, pts, spec.cols, spec.rows);
       return { found: true, points: pts, ids: null, method };
@@ -388,7 +392,7 @@
           corners = Float32Array.from({ length: keep.length * 8 }, (_, k) => corners[8 * keep[k >> 3] + (k & 7)]);
         }
       }
-      if (accurate && ids.length) {
+      if ((accurate || opts.refine) && ids.length) {
         // Marker corners are L-corners; refine them from fitted edge lines at full resolution.
         const bits = d.dict.markerSize + 2;
         const sepBits = spec.type === 'gridboard' ? spec.markerSeparation * bits / spec.markerSize : bits;

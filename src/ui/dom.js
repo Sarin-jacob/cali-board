@@ -126,9 +126,14 @@ export async function copyText(text) {
 
 /**
  * Opens a modal <dialog>. `content` is html`` output; it may contain elements with
- * [data-close] to close. Resolves with the dialog's returnValue when closed.
+ * [data-close="value"] to close. Resolves with that value when closed.
+ * onMount(dlg, finish) runs after opening — call finish(value) to close programmatically.
+ * onClose() runs once when the dialog goes away (for cleanup).
+ *
+ * Resolution does not depend on the dialog's `close` event alone: Chromium defers that event
+ * while a page is not rendering, which would otherwise leave callers waiting forever.
  */
-export function openDialog(content, { title = '', label, wide = false, onMount } = {}) {
+export function openDialog(content, { title = '', label, wide = false, onMount, onClose } = {}) {
   const dlg = document.createElement('dialog');
   dlg.className = 'modal';
   if (wide) dlg.style.width = 'min(100% - 2rem, 72rem)';
@@ -145,18 +150,25 @@ export function openDialog(content, { title = '', label, wide = false, onMount }
   document.body.appendChild(dlg);
   const opener = document.activeElement;
   return new Promise((resolve) => {
-    dlg.addEventListener('click', (e) => {
-      if (e.target === dlg) dlg.close('cancel'); // backdrop click
-      const c = e.target.closest('[data-close]');
-      if (c) dlg.close(c.dataset.close || 'cancel');
-    });
-    dlg.addEventListener('close', () => {
-      resolve(dlg.returnValue);
+    let done = false;
+    const finish = (value) => {
+      if (done) return;
+      done = true;
+      if (dlg.open) dlg.close(value ?? 'cancel');
+      try { onClose?.(); } catch (err) { console.error(err); }
+      resolve(value ?? dlg.returnValue ?? 'cancel');
       dlg.remove();
       opener?.focus?.();
+    };
+    dlg.addEventListener('click', (e) => {
+      if (e.target === dlg) { finish('cancel'); return; } // backdrop click
+      const c = e.target.closest('[data-close]');
+      if (c) finish(c.dataset.close || 'cancel');
     });
+    dlg.addEventListener('cancel', (e) => { e.preventDefault(); finish('cancel'); }); // Escape
+    dlg.addEventListener('close', () => finish(dlg.returnValue));
     dlg.showModal();
-    onMount?.(dlg);
+    onMount?.(dlg, finish);
   });
 }
 
@@ -184,10 +196,10 @@ export async function promptDialog(message, { title = 'Name', value = '', confir
       </div>
     </form>`, {
     title,
-    onMount: (dlg) => {
+    onMount: (dlg, finish) => {
       input = dlg.querySelector('input');
       input.select();
-      dlg.querySelector('form').addEventListener('submit', (e) => { e.preventDefault(); dlg.close('ok'); });
+      dlg.querySelector('form').addEventListener('submit', (e) => { e.preventDefault(); finish('ok'); });
     },
   });
   return result === 'ok' && input.value.trim() ? input.value.trim() : null;

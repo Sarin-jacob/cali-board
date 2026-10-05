@@ -1,4 +1,4 @@
-import { html, render, $, $$, on, toast, announce, openDialog, promptDialog, download, copyText, fmt, formatDate, raw } from '../ui/dom.js';
+import { html, render, $, $$, on, toast, announce, openDialog, promptDialog, download, copyText, fmt, formatDate } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { vision } from '../engine/vision.js';
 import { app, emit } from '../app/state.js';
@@ -112,7 +112,7 @@ function renderAll() {
     ${truth ? html`
     <section class="card card-pad mt-4" aria-labelledby="gt-h">
       <h2 id="gt-h" class="section-title">Compared with the virtual camera’s true lens</h2>
-      <div class="mt-2 overflow-x-auto"><table class="table">
+      <div class="mt-2 overflow-x-auto" tabindex="0" role="region" aria-label="Ground-truth comparison table"><table class="table">
         <thead><tr><th>Parameter</th><th>Estimated</th><th>Truth</th><th>Error</th></tr></thead>
         <tbody>
           <tr><td>fx</td><td>${fmt(truth.fx.est, 2)}</td><td>${fmt(truth.fx.truth, 2)}</td><td>${fmt(truth.fx.err * 100, 3)} %</td></tr>
@@ -448,12 +448,12 @@ function inspect(id) {
     </div>`, {
     title: `View #${v.n}${v.name ? ` — ${v.name}` : ''}`,
     wide: true,
+    onClose: () => url && URL.revokeObjectURL(url),
     onMount(dlg) {
       const canvas = $('canvas', dlg);
       const draw = () => { const o = prepareOverlay(canvas, r.imageSize); if (v.residuals) drawResiduals(o.ctx, v.points, v.residuals, { ...o, gain }); };
       requestAnimationFrame(draw);
       $('[data-gain]', dlg).addEventListener('input', (e) => { gain = Number(e.target.value); $('[data-gain-val]', dlg).textContent = `×${gain}`; draw(); });
-      dlg.addEventListener('close', () => url && URL.revokeObjectURL(url));
     },
   });
 }

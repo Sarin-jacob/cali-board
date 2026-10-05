@@ -45,7 +45,7 @@ function rejectOutliers(views, solved) {
     for (let i = 0; i < r.length / 2; i++) if (Math.hypot(r[2 * i], r[2 * i + 1]) <= thr) keep.push(i);
     removed += r.length / 2 - keep.length;
     if (keep.length === r.length / 2) { out.push(v); return; }
-    if (keep.length < MIN_POINTS) { removed += 0; return; }
+    if (keep.length < MIN_POINTS) return; // too few inliers left: drop the whole view
     out.push({
       ...v,
       obj: Float32Array.from(keep.flatMap((i) => [v.obj[3 * i], v.obj[3 * i + 1], v.obj[3 * i + 2]])),

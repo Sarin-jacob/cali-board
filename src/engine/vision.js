@@ -124,6 +124,21 @@ class VisionEngine extends EventTarget {
 export const vision = new VisionEngine();
 
 /**
+ * Resolves on the next *new* video frame (so loops never re-analyse duplicates), with a timeout
+ * fallback: requestVideoFrameCallback and requestAnimationFrame both pause while a page is not
+ * being rendered, and a live loop must not stall forever because of that.
+ */
+export function nextVideoFrame(video, timeoutMs = 250) {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => { if (!done) { done = true; clearTimeout(t); resolve(); } };
+    const t = setTimeout(finish, timeoutMs);
+    if (video?.requestVideoFrameCallback) video.requestVideoFrameCallback(finish);
+    else requestAnimationFrame(finish);
+  });
+}
+
+/**
  * Grabs the current frame of a <video> (or canvas) in a form the worker can decode, optionally
  * downscaled so its longer side ≤ maxSide. Returns { frame, transfer, width, height, scale }.
  */
