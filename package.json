@@ -1,0 +1,26 @@
+{
+  "name": "caliboard",
+  "private": true,
+  "version": "2.0.0",
+  "description": "Serverless camera calibration in the browser — targets, intrinsics, fisheye, stereo, validation. Everything runs locally in WebAssembly.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:https": "vite --mode https",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node tests/geometry.test.mjs && node tests/pipeline.test.mjs && node tests/exporters.test.mjs",
+    "dictionaries": "node scripts/extract-dictionaries.cjs",
+    "deploy": "vite build && gh-pages -d dist"
+  },
+  "dependencies": {
+    "jspdf": "^4.2.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "gh-pages": "^6.3.0",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.2.2"
+  }
+}
